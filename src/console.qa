@@ -1,0 +1,37 @@
+System console
+
+Event usercmd	: usercmd(CMD)
+Event unityAddr : unityAddr( ADDR ) //From user interface
+
+Context ctxConsole ip [ host="localhost" port=8010 ] -httpserver
+
+QActor rover context ctxConsole {
+	Plan init normal [
+		println("rover started")
+	]
+	switchTo waitUserCmd
+	
+	Plan waitUserCmd[]
+	transition stopAfter 600000
+		whenEvent usercmd -> execMove
+	finally repeatPlan
+	
+	Plan execMove resumeLastPlan[
+		printCurrentEvent;
+		onEvent usercmd : usercmd( robotgui(unityAddr(X)) ) -> switchTo connectToUnity
+	]
+	
+	Plan connectToUnity resumeLastPlan[ 
+  		onEvent usercmd : usercmd(robotgui(unityAddr(ADDR))) -> println(ADDR);//ADDR=localhost in this version
+ 		[ !? unityOn ] println( "UNITY already connected"  )
+	]   
+	switchTo [ not !? unityOn ] doconnectToUnity
+	
+ 	Plan doconnectToUnity resumeLastPlan[ 
+ 		connectUnity "192.168.203.130" ;  
+		createUnityObject "rover" ofclass "Prefabs/CustomActor" ;
+  		backwards 70 time ( 800 ) ;    	   
+   	    right 70 time ( 1000 ) ;  //position
+ 		addRule unityOn 
+	] 
+}
