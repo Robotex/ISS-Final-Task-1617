@@ -178,7 +178,7 @@ QActor sonar context ctxProgetto{
 	Plan init normal[println("Sonar ready")] switchTo loop
 	
 	Plan loop[
-		
+		printCurrentEvent
 	]
 	transition stopAfter 600000
 		whenEvent cmd -> handleCmd,
