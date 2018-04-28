@@ -78,11 +78,13 @@ QActor robot context ctxProgetto{
 	
 	Plan connectToUnityStatic resumeLastPlan [
 		printCurrentEvent;
-		onEvent unityAddr : unityAddr(X)->println('X');
-		//onEvent unityAddr : unityAddr(X) -> connectUnity X;//"192.168.1.201";
-		onEvent unityAddr : unityAddr(X) -> actorOp workWithUnity(X);
-		actorOp createSimulatedActor("rover","Prefabs/CustomActor");
-		//createUnityObject "robot" ofclass "Prefabs/CustomActor" ;
+		onEvent unityAddr : unityAddr(X)->println("X");
+		onEvent unityAddr : unityAddr(X) -> connectUnity "X";//"192.168.1.201";
+		
+		//onEvent unityAddr : unityAddr(X) -> actorOp workWithUnity(X);
+		//actorOp createSimulatedActor("rover","Prefabs/CustomActor");
+		createUnityObject "rover" ofclass "Prefabs/CustomActor" ;
+		
   		backwards 70 time ( 800 ) ;    	   
    	    right 70 time ( 1000 ) ;  //position
  		addRule unityOn 
@@ -145,8 +147,8 @@ QActor robot context ctxProgetto{
 	
 	Plan hault resumeLastPlan[
 		println("Robot is stopping");
-		stop 50 time (1000);
-		delay 1000
+		stop 50 time (1000)
+		
 	]
 	
 	Plan handleAlarm resumeLastPlan [
