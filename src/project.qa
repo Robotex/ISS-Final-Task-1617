@@ -1,0 +1,222 @@
+System project
+
+Dispatch robotCommand : robotCommand(X)
+Dispatch startingDistance : startingDistance(X)
+Event inputcmd : usercmd(executeInput(CMD))
+Event usercmd : usercmd(robotgui(X))
+Event alarm : alarm(fire)
+Event obstacle : obstacle(X)
+Event cmd : cmd(X)
+Event unityAddr : unityAddr(ADDR)
+Event sonar : sonar(SONARNAME, TARGETNAME, DISTANCE)
+Event sonarDetect : sonarDetect(X)
+
+
+
+
+Context projectctx ip [host="localhost" port=8070] -httpserver
+//EventHandler evh for sonarDetect, sonar -print;
+
+QActor prconsole context projectctx{
+	
+	
+	Plan init normal[
+			
+	] switchTo loop
+	
+	Plan loop[]
+	transition stopAfter 60000
+		whenEvent usercmd -> handleUserCmd,
+		whenEvent inputcmd -> handleInputCmd,
+		whenEvent cmd -> handleCmd
+	finally repeatPlan
+		 
+	Plan handleUserCmd resumeLastPlan[
+		println("console handling usercmd");
+		onEvent usercmd : usercmd(robotgui(X)) -> forward rover -m robotCommand : robotCommand(X)
+	]
+	
+	Plan handleInputCmd resumeLastPlan[
+		println("console handling inputcmd");
+		onEvent inputcmd:usercmd(CMD) -> println(CMD);
+		onEvent inputcmd:usercmd(executeInput(connectToUnity(X))) -> emit unityAddr : unityAddr(X);
+		onEvent inputcmd:usercmd(executeInput(startingDistance(X))) -> forward rover -m startingDistance: startingDistance(X)
+		 
+	]
+	
+	Plan handleCmd resumeLastPlan[
+		memoCurrentEvent;
+		println("console handling cmd");
+		onEvent cmd:cmd(start) -> forward rover -m robotCommand:robotCommand(start)		
+	]
+	
+	
+	
+	Plan handleStop resumeLastPlan[
+		println("console handling stop")
+	]
+}
+
+QActor rover context projectctx{
+	Rules{
+		maxDistance(150).
+	}
+	
+	//INIZIA
+	Plan init normal [println("robot ready")] switchTo loop
+	
+	//ASPETTA EVENTI O MESSAGGI
+	Plan loop [
+		println("Waiting");
+		demo eval('minus',10,3);
+		[!? eval('minus',maxDistance,3,R)] println(R)
+	]
+	transition stopAfter 60000
+		whenEvent unityAddr -> connectToUnity,
+		whenEvent sonarDetect -> handleDetection,
+		whenMsg robotCommand -> handleMovement
+	finally repeatPlan
+	
+	//TENTA LA CONNESSIONE A UNITY	
+	Plan connectToUnity resumeLastPlan[
+		memoCurrentEvent;
+		[!? unityOn] println("Unity is connected yet") 
+	] switchTo [not !? unityOn] doConnectToUnity
+	
+	//ESEGUE LA CONNESSIONE A UNITY
+	Plan doConnectToUnity resumeLastPlan[
+		println("connectingToUnity");
+		onEvent unityAddr:unityAddr(X) -> actorOp workWithUnity(X);
+		actorOp createSimulatedActor("rover","Prefabs/CustomActor");
+		backwards 30 time (2000);
+		right 100 time (1000);
+		addRule unityOn
+	] switchTo moveToSonarOne
+	
+	//SI MUOVE FINO ALLA LINEA DI PARTENZA
+	Plan moveToSonarOne resumeLastPlan[]
+	reactive onward 30 time(1000)
+		whenEnd -> moveToSonarOne
+		whenTout 100000 -> handleTout
+		whenEvent sonar -> handleSonar
+		
+	//IMPOSTA LA DISTANZA DI PARTENZA DAL SONAR1	
+	Plan handleStartingDistance resumeLastPlan[
+		println("handling starting distance");
+		onMsg startingDistance:startingDistance(X) ->addRule startDistance(X)
+	]
+	switchTo [!? startingDistance] getCloseToTheStartingPoint
+	
+	//PORTA IL ROBOT FINO ALLA DISTANZA DI PARTENZA DAL SONAR1
+	Plan getCloseToTheStartingPoint resumeLastPlan [
+		println("rover getting close to the starting point")
+		
+	]
+	reactive left 50 time (1000)
+		whenEnd -> gettingCloseToTheStartingPoint
+		whenTout 100000->handleTout
+		whenEvent alarm -> handleAlarm
+	
+	Plan gettingCloseToTheStartingPoint[
+		
+	]
+	
+		
+	
+	
+	//GESTISCE IL MOVIMENTO MANUALE	
+	Plan handleMovement resumeLastPlan[
+		onMsg robotCommand : robotMove(X) -> println(X);
+		onMsg robotCommand : robotCommand(start) -> addRule start
+		//onMsg robotCommand : robotCommand(s(a)) -> println("STOP")
+		
+	]switchTo [!? start] moveForward
+	
+	
+	
+	
+	//PLAN GENERICO PER QUANDO FINISCE UNA REACTIVE
+	Plan endOfWork resumeLastPlan[println("End of work")]
+	
+	//PLAN GENERICO PER UN TIMEOUTE DI UNA REACTIVE
+	Plan handleTout resumeLastPlan[println("Time out")]
+	//PLAN GENERICO PER L'ALLARME
+	Plan handleAlarm resumeLastPlan[println("Alarm fired")]
+	
+	Plan handleSonar resumeLastPlan[
+		println("Sonar detection");
+		
+		onEvent sonar:sonar(SONARNAME, TARGETNAME, DISTANCE) -> println(SONARNAME);
+		[not !? start] onEvent sonar:sonar(sonar1, TARGETNAME, DISTANCE) -> stop 100 time(1000);
+		onEvent sonar:sonar(sonar1, TARGETNAME, DISTANCE) -> println(DISTANCE);
+		onEvent sonar:sonar(sonar2, TARGETNAME, DISTANCE) -> addRule completed
+	]
+	switchTo [?? completed] endGame
+	
+	Plan handleDetection resumeLastPlan[
+		println("Detection");
+		
+		onEvent sonarDetect:sonarDetect(X) -> println(X);
+		onEvent sonarDetect:sonarDetect(dynamicobstacle) -> delay time(300);
+		onEvent sonarDetect:sonarDetect(X) -> addRule lastDetection(X)
+	]
+	reactive stop 100 time (500)
+	whenEnd ->endOfWork
+	whenTout 100000 -> handleTout
+	whenEvent sonar -> handleSonar
+	
+	Plan endGame [
+		stop 0 time (1000);
+		println("End game")
+	]
+	
+	Plan moveForward resumeLastPlan[]
+	reactive onward 30 time (1000)
+		whenEnd -> endOfWork
+		whenTout 100000-> handleTout
+		whenEvent alarm -> handleAlarm or
+		whenEvent sonarDetect -> handleDetection or
+		whenEvent sonar -> handleSonar
+	finally repeatPlan
+		
+	Plan rotateLeft resumeLastPlan[]
+	reactive left 15 time (1000)
+		whenEnd -> endOfWork
+		whenTout 100000-> handleTout
+		whenEvent alarm -> handleAlarm
+	
+	Plan rotateRight resumeLastPlan[]
+	reactive right 15 time (1000)
+		whenEnd -> endOfWork
+		whenTout 100000-> handleTout
+		whenEvent alarm -> handleAlarm
+	
+	Plan moveBackwards resumeLastPlan[]
+	reactive backwards 15 time (1000)
+		whenEnd -> endOfWork
+		whenTout 100000-> handleTout
+		whenEvent alarm -> handleAlarm
+		
+}
+
+/*QActor robot_sonar context projectctx{
+	Plan init normal[println("sonar ready")] switchTo loop
+	
+	Plan loop []
+	transition stopAfter 60000
+		whenEvent sonarDetect -> handleDetection
+	finally repeatPlan
+	
+	Plan handleSonar resumeLastPlan[
+		println("sonar handlings");
+		forward rover -m robotMove : robotMove(h(low))
+	]
+	
+	Plan handleDetection resumeLastPlan[
+		println("sonar handling detection");
+		forward rover -m robotMove : robotMove(h(low))
+	]
+	
+}
+*/
+

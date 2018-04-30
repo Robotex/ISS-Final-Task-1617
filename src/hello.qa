@@ -1,9 +1,0 @@
-System helloSystem
-Context ctxHello ip [ host="localhost" port=8010 ] -g cyan
-
-QActor qahello context ctxHello {
-	Plan init normal
-		actions[
-			println("Hello world!")
-		]
-}
