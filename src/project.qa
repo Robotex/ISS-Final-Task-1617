@@ -74,7 +74,8 @@ QActor rover context projectctx{
 	transition stopAfter 60000
 		whenEvent unityAddr -> connectToUnity,
 		whenEvent sonarDetect -> handleDetection,
-		whenMsg robotCommand -> handleMovement
+		whenMsg robotCommand -> handleMovement,
+		whenMsg startingDistance -> handleStartingDistance
 	finally repeatPlan
 	
 	//TENTA LA CONNESSIONE A UNITY	
@@ -88,7 +89,7 @@ QActor rover context projectctx{
 		println("connectingToUnity");
 		onEvent unityAddr:unityAddr(X) -> actorOp workWithUnity(X);
 		actorOp createSimulatedActor("rover","Prefabs/CustomActor");
-		backwards 30 time (2000);
+//		onward 10 time (2000);
 		right 100 time (1000);
 		addRule unityOn
 	] switchTo moveToSonarOne
@@ -98,7 +99,15 @@ QActor rover context projectctx{
 	reactive onward 30 time(1000)
 		whenEnd -> moveToSonarOne
 		whenTout 100000 -> handleTout
-		whenEvent sonar -> handleSonar
+		whenEvent sonar -> handleSonar//approachToStartingPoint
+	
+	Plan approachToStartingPoint resumeLastPlan[
+		[!? eval(lt, DISTANCE, 30)] onward 1 time (10);
+		[!? eval(gt, DISTANCE, 30)] backwards 1 time (10);
+		onEvent sonar:sonar(sonar1, TARGETNAME, DISTANCE) -> addRule startDistance(DISTANCE)
+	]
+	finally repeatPlan
+	
 		
 	//IMPOSTA LA DISTANZA DI PARTENZA DAL SONAR1	
 	Plan handleStartingDistance resumeLastPlan[
