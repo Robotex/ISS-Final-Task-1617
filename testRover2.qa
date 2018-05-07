@@ -11,14 +11,15 @@ System testRover2
 
 
 
-
-
- 
  
 Dispatch robotMoveLeft 		: robotMoveLeft(TIME)
+Dispatch robotRotateLeft	: robotRotateLeft(TIME)
 Dispatch robotMoveRight 	: robotMoveRight(TIME)
+Dispatch robotRotateRight	: robotRotateRight(TIME)
 Dispatch robotMoveForward	: robotMoveForward(TIME)
 Dispatch robotMoveBackwards	: robotMoveBackwards(TIME)
+
+Event unityAddr				: unityAddr(ADDR)
 Event robotHold 			: robotHold(SPEED,TIME)
 Event inputcmd 				: usercmd(executeInput(CMD))
 Event usercmd 				: usercmd(robotgui(X))
@@ -29,13 +30,167 @@ Event sonarDetect    		: sonarDetect(X)
 Event sonar          		: sonar(SONAR, TARGET, DISTANCE)
    
  
-  
+
 Context  ctxRover2  ip [ host="localhost"  port=8070 ] -httpserver    
-EventHandler evh for  sonarDetect , sonar,robotHold -print;   
- 
-QActor rover context ctxRover2{
+EventHandler evh for  sonarDetect , sonar -print;
+
+QActor rover context ctxRover2 {
+	//INIZIA ED ASPETTA EVENTI O MESSAGGI
+	Rules{
+		forTime(T).
+	}
 	
-	Plan loop normal[println("console ready")]
+	Plan loop normal[
+		println("lowlevel ready")
+	]
+	transition stopAfter 60000
+		whenEvent unityAddr->doConnectToUnity,
+		whenEvent robotHold:robotHold do println("I'm not doing anything"),
+		whenMsg robotRotateLeft -> rotateLeft,
+		whenMsg robotRotateRight -> rotateRight,
+		//whenMsg robotMoveLeft -> moveLeft,
+		//whenMsg robotMoveRight -> moveRight,
+		whenMsg robotMoveForward -> moveForward,
+		whenMsg robotMoveBackwards -> moveBackwards 
+	finally repeatPlan
+	
+	
+	Plan doConnectToUnity resumeLastPlan[
+		println("connectingToUnity");
+		onEvent unityAddr:unityAddr(X)-> actorOp workWithUnity(X);
+		actorOp createSimulatedActor("rover","Prefabs/CustomActor")  
+	]
+	
+
+	//MUOVITI IN AVANTI
+	Plan moveForward resumeLastPlan[
+		println("Moving forward");
+		addRule translation;
+		onMsg robotMoveForward:robotMoveForward(T) -> addRule timing(T);
+		[!? timing(T)] println(forwardTiming(T))
+	]
+	reactive [?? timing(T)] onward 30 time(T)
+		whenEnd -> endOfTranslation
+		whenTout 100000-> handleTout
+		whenEvent robotHold -> endOfMovement
+		
+	
+	
+	//MUOVITI INDIETRO
+	Plan moveBackwards resumeLastPlan[
+		println("Moving backwards");
+		addRule translation;
+		onMsg robotMoveBackwards:robotMoveBackwards(T) -> addRule timing(T);
+		[!? timing(T)] println(backwardsTiming(T))
+		
+	]
+	reactive [?? timing(T)]  backwards 30 time (T)
+		whenEnd -> endOfMovement
+		whenTout 100000-> handleTout
+		whenEvent robotHold -> endOfMovement
+		
+	Plan rotateLeft resumeLastPlan[
+		println("Rotating Left");
+		left 50 time (1000)
+	]
+	
+	Plan rotateRight resumeLastPlan[
+		println("Rotating Right");
+		right 50 time(1000)
+	]
+	
+	/*Plan moveLeft resumeLastPlan[
+		println("Moving left");
+		left 50 time(1000);
+		addRule leftMovement;
+		addRule translation
+	] switchTo moveForward
+	
+		
+	Plan moveRight resumeLastPlan[
+		println("Moving right");
+		right 50 time(1000);
+		addRule rightMovement;
+		addRule translation
+	] switchTo moveForward
+	*/
+	
+	
+	Plan endOfTranslation resumeLastPlan[
+		
+		[?? translation] delay 10 
+	]
+	
+		
+	Plan endOfMovement[
+		stop 100 time (1000);
+		[?? leftMovement] right 50 time(1000);
+		[?? rightMovement] left 50 time(1000)
+		
+		 
+	]
+	switchTo loop
+	
+	//PLAN GENERICO PER ERRORI GENERICI DI PROVA
+	Plan genericSonar resumeLastPlan[println("WHAT?")]
+	//PLAN GENERICO PER QUANDO FINISCE UNA REACTIVE
+	Plan endOfWork resumeLastPlan[println("End of work")]
+	
+	//PLAN GENERICO PER UN TIMEOUTE DI UNA REACTIVE
+	Plan handleTout resumeLastPlan[println("Time out")]
+	//PLAN GENERICO PER L'ALLARME
+	Plan handleAlarm resumeLastPlan[println("Alarm fired")] switchTo endOfMovement
+}   
+ 
+QActor highlevel context ctxRover2{
+	
+	Rules{
+		
+		status:- stage(S).
+		r1:-assign(startingDistance,10),assign(x,0),getVal(startingDistance,V2),getVal(x,V1),eval(minus,V1,V2,RV),actorPrintln(r1(RV)).
+		r2:-startingDistance(S),fCurrentDistance(F),sCurrentDistance(D),eval(minus,S,D,RV), actorPrintln(r2(RV)).
+		r3:- difference(S,F),eval(minus,S,F,RV),actorPrintln(r3(RV)).
+	}
+	
+	Plan init normal[
+		addRule stage(0);
+		println("Starting in... ");
+		[!? stage(S)] println(stage(S))
+	] switchTo loop
+	 
+	Plan loop [
+		println("console ready,executing test on demo");
+		/*addRule startingDistance(400);
+		addRule fCurrentDistance(200);
+		addRule sCurrentDistance(300);
+		[!? startingDistance(S)] demo assign(x,S);
+		[!? fCurrentDistance(F)] demo assign(y,F);
+		demo getVal(x,V1);
+		demo getVal(y,V2);
+		[!? goalResult(getVal(x,V1))] println(V1);
+		[?? goalResult(getVal(y,V2))] println(V2);
+		addRule difference(100,200);
+		demo r2;
+		demo r3;
+		[!? difference(S,F)] demo eval(minus,S,F,RV);
+		[!? goalResult(eval(minus,S,F,RV))] println(result(RV));*/
+		
+			
+		
+		
+		//demo r2;
+		
+		[!? stage(0)]{
+			[!? takingPosition] {
+				delay 1000;
+				println("Unity is connected so....i'm taking position");
+				forward rover -m robotMoveBackwards:robotMoveBackwards(2000);
+				forward rover -m robotRotateRight:robotRotateRight(1000);
+				forward rover -m robotMoveForward:robotMoveForward(4000)
+			}	
+		}
+		
+	]
 	transition stopAfter 60000
 		whenEvent usercmd -> handleUserCmd,
 		whenEvent inputcmd -> handleInputCmd,
@@ -46,40 +201,33 @@ QActor rover context ctxRover2{
 	finally repeatPlan 
 	
 	
-	Plan connectToUnity resumeLastPlan[
-		println("connection to unity requested");
-		[!? unityOn] println("unity is connected yet")
-	] switchTo [not !? unityOn] doConnectToUnity
 	 
-	Plan doConnectToUnity resumeLastPlan[
-		println("connectingToUnity");
-		onEvent inputcmd:usercmd(executeInput(connectToUnity(X)))-> actorOp workWithUnity(X);
-		actorOp createSimulatedActor("rover","Prefabs/CustomActor");
-		forward lowlevel -m robotMoveBackwards:robotMoveBackwards(1000);
-		forward lowlevel -m robotMoveRight:robotMoveRight(1000);
-		forward lowlevel -m robotMoveForward:robotMoveForward(1000);
-		addRule unityOn
-	]
+	
 		 
 	Plan handleUserCmd resumeLastPlan[
 		println("handling usercmd");
 		onEvent usercmd : usercmd(robotgui(h(X))) -> emit robotHold:robotHold(X,1000);
-		onEvent usercmd : usercmd(robotgui(w(X))) -> forward lowlevel -m robotMoveForward:robotMoveForward(1000);
-		onEvent usercmd : usercmd(robotgui(s(X))) -> forward lowlevel -m robotMoveBackwards:robotMoveBackwards(1000);
-		onEvent usercmd : usercmd(robotgui(a(X))) -> forward lowlevel -m robotMoveLeft:robotMoveLeft(1000);
-		onEvent usercmd : usercmd(robotgui(d(X))) -> forward lowlevel -m robotMoveRight:robotMoveRight(1000)
+		onEvent usercmd : usercmd(robotgui(w(X))) -> forward rover -m robotMoveForward:robotMoveForward(1000);
+		onEvent usercmd : usercmd(robotgui(s(X))) -> forward rover -m robotMoveBackwards:robotMoveBackwards(1000);
+		onEvent usercmd : usercmd(robotgui(a(X))) -> forward rover -m robotRotateLeft:robotMoveLeft(1000);
+		onEvent usercmd : usercmd(robotgui(d(X))) -> forward rover -m robotRotateRight:robotMoveRight(1000)
 		
 	]
 	
 	Plan handleInputCmd resumeLastPlan[
 		println("handling inputcmd");
 		onEvent inputcmd:usercmd(executeInput(X)) -> println(X);
-		onEvent inputcmd:usercmd(executeInput(connectToUnity(X))) ->{
-			memoCurrentEvent; 
-			addRule connectionRequest
-		}
+		[not !? unityOn] {
+			onEvent inputcmd:usercmd(executeInput(connectToUnity(X))) -> emit unityAddr:unityAddr(X);
+			addRule unityOn;
+			addRule takingPosition
+		};
+		[not !? startingDistance(X)] {
+			onEvent inputcmd:usercmd(executeInput(startingDistance(X))) -> demo startingDistance(X)
+		} 
 	]
-	switchTo [?? connectionRequest] connectToUnity
+	
+	
 	
 	Plan handleCmd resumeLastPlan[
 		onEvent cmd:X->println(X)
@@ -93,31 +241,17 @@ QActor rover context ctxRover2{
 		emit robotHold:robotHold(10,1000)
 	]
 	
-	Plan handleSonar resumeLastPlan[
-		actorOp assign(stage,1);
+	Plan handleSonar resumeLastPlan[ //DA RICORDARE CHE SE HANDLESONAR VIENE ATTIVATO, È TRIVIALE CHE UNITYON ESISTA TRA LE RULES
 		println("handling sonar from high");
-		onEvent sonar:sonar(sonar1,TARGET,DISTANCE) -> actorOp getVal(fcurrentDistance,DISTANCE);
-		onEvent sonar:sonar(sonar2,TARGET,DISTANCE) -> actorOp assign(scurrentDistance,DISTANCE);
-		[!? getVal(fcurrentDistance(D))] println(D);
-		println("Taking stage value"); 
-		
-		
-		
-		[?? stage(0)] { //IN QUESTO STAGE IL ROVER RAGGIUNGE LA LINEA DI RILEVAMENTO DEL SONAR1
-			println("stage0 Implemented - modified");
-			onEvent sonar:sonar(sonar1,TARGET,DISTANCE) -> emit robotHold:robotHold(10,1000);
-			addRule stage(1)
-			
-			
-		};
-		[!? stage(1)] { //IN QUESTO STAGE CI SI AVVICINA ALLO STARTING POINT
-			
-			println('stage 1');
-			[!? fcurrentDistance(D)] actorOp eval(minus,50,D,R);
-			[?? actorOpDone(OP,R)] println(done(OP,R));
-			actorOp getDate;
-			[!? actorOpDone(OP,R)] println(done(OP,R))
-		}  
+		removeRule fCurrentDistance(F);
+		removeRule sCurrentDistance(D);
+		onEvent sonar:sonar(SONAR,TARGET,DISTANCE) -> println(sonny(SONAR,TARGET,DISTANCE));
+		onEvent sonar:sonar(sonar1,TARGET,DISTANCE) -> addRule fCurrentDistance(DISTANCE);
+		onEvent sonar:sonar(sonar2,TARGET,DISTANCE) -> addRule sCurrentDistance(DISTANCE);
+		[!? fCurrentDistance(X)] println(firstSonar(X));
+		[!? sCurrentDistance(X)] println(secondSonar(X));
+		[?? takingPosition] forward rover -m robotHold:robotHold(100,1000)
+		 
 	]
 	
 	Plan handleAlarm[
@@ -136,75 +270,5 @@ QActor rover context ctxRover2{
 	
 }
  
-QActor lowlevel context ctxRover2 {
-	//INIZIA ED ASPETTA EVENTI O MESSAGGI
-	
-	Plan loop normal[
-		println("lowlevel ready")
-	]
-	transition stopAfter 60000
-		whenEvent sonarDetect->genericSonar,
-		whenEvent robotHold:robotHold do println("I'm not doing anything"),
-		whenMsg robotMoveLeft -> rotateLeft,
-		whenMsg robotMoveRight -> rotateRight,
-		whenMsg robotMoveForward -> moveForward,
-		whenMsg robotMoveBackwards -> moveBackwards 
-	finally repeatPlan
-	
 
-	//MUOVITI IN AVANTI
-	Plan moveForward resumeLastPlan[
-		println("Moving forward");
-		addRule translation
-	]
-	reactive onward 30 time (1000)
-		whenEnd -> endOfTranslation
-		whenTout 100000-> handleTout
-		whenEvent robotHold -> endOfMovement or
-		whenEvent sonar -> genericSonar
-	
-	
-	//MUOVITI INDIETRO
-	Plan moveBackwards resumeLastPlan[
-		println("Moving backwards");
-		addRule translation
-	]
-	reactive backwards 30 time (1000)
-		whenEnd -> endOfTranslation
-		whenTout 100000-> handleTout
-		whenEvent robotHold -> endOfMovement
-		
-	Plan rotateLeft resumeLastPlan[
-		println("Rotating Left");
-		left 50 time (1000)
-	]
-	
-	Plan rotateRight resumeLastPlan[
-		println("Rotating Right");
-		right 50 time(1000)
-	]
-	
-	Plan endOfTranslation resumeLastPlan[
-		
-		[?? translation] delay 10 
-	]
-	
-		
-	Plan endOfMovement[
-		
-		[?? translation] stop 0 time (1000)
-		 
-	]
-	switchTo loop
-	
-	//PLAN GENERICO PER ERRORI GENERICI DI PROVA
-	Plan genericSonar resumeLastPlan[println("WHAT?")]
-	//PLAN GENERICO PER QUANDO FINISCE UNA REACTIVE
-	Plan endOfWork resumeLastPlan[println("End of work")]
-	
-	//PLAN GENERICO PER UN TIMEOUTE DI UNA REACTIVE
-	Plan handleTout resumeLastPlan[println("Time out")]
-	//PLAN GENERICO PER L'ALLARME
-	Plan handleAlarm resumeLastPlan[println("Alarm fired")] switchTo endOfMovement
-}
 
