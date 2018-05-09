@@ -32,7 +32,8 @@ Event sonar          		: sonar(SONAR, TARGET, DISTANCE)
  
 
 Context  ctxRover2  ip [ host="localhost"  port=8070 ] -httpserver    
-EventHandler evh for  sonarDetect , sonar -print;
+EventHandler evh for  robotHold {memoCurrentEvent for  rover};
+
 
 QActor rover context ctxRover2 {
 	//INIZIA ED ASPETTA EVENTI O MESSAGGI
@@ -58,7 +59,7 @@ QActor rover context ctxRover2 {
 		onEvent unityAddr:unityAddr(X)-> actorOp workWithUnity(X);
 		actorOp createSimulatedActor("rover","Prefabs/CustomActor")
 	]
-	
+	//onward [speed] time(time)
 
 	//MUOVITI IN AVANTI
 	Plan moveForward resumeLastPlan[
@@ -67,7 +68,7 @@ QActor rover context ctxRover2 {
 		onMsg robotMoveForward:robotMoveForward(T) -> addRule timing(T);
 		[!? timing(T)] println(forwardTiming(T))
 	]
-	reactive [?? timing(T)] onward 15 time(T)
+	reactive [?? timing(T)] onward 25 time(T)
 		whenEnd -> endOfMovement
 		whenTout 100000-> handleTout
 		whenEvent robotHold -> endOfMovement
@@ -121,6 +122,7 @@ QActor rover context ctxRover2 {
 	
 		
 	Plan endOfMovement[
+		onEvent robotHold:X -> println("robot hold called");
 		stop 100 time (10);
 		[?? leftMovement] right 50 time(1000);
 		[?? rightMovement] left 50 time(1000)
@@ -155,7 +157,6 @@ QActor highlevel context ctxRover2{
 	] switchTo loop
 	 
 	Plan loop [
-		println("console ready,executing test on demo");
 		/*addRule startingDistance(400);
 		addRule fCurrentDistance(200);
 		addRule sCurrentDistance(300);
@@ -197,29 +198,59 @@ QActor highlevel context ctxRover2{
 			}
 		};
 		[!? stage(1)]{
-			println("loop stage(1)");
+			
 			[!? difference(DFF)]{
-				println("Difference math ready");
+				
 				[?? approachToPoint] {
+					println("Approaching to point");
 					[!? difference(DFF)] println(evaluationOn(DFF));
 					[!? difference(DFF)] demo eval(lt,DFF,0);
 					[!? goalResult(eval(lt,DFF,0))] println(true(DFF)) else println(false(DFF)); 
 					[!? goalResult(eval(lt,DFF,0))] {
 						addRule getClose;
 						forward rover -m robotRotateLeft : robotRotateLeft(1000);
-						forward rover -m robotMoveForward:robotMoveForward(10000);
-						//forward rover -m robotMoveBackwards:robotMoveBackwards(500); //PRECISION COMPENSATION
+						forward rover -m robotMoveForward:robotMoveForward(10000);						
 						forward rover -m robotRotateRight:robotRotateRight(1000)
 					}
 					else {
 						addRule getFar;
 						forward rover -m robotRotateRight:robotRotateRight(1000);
 						forward rover -m robotMoveForward:robotMoveForward(10000);
-						//forward rover -m robotMoveBackwards:robotMoveBackwards(500); //PRECISION COMPENSATION
 						forward rover -m robotRotateLeft:robotRotateLeft(1000)
 					}
 				}
 			}	
+		};
+		[!? stage(2)]{
+			[?? detection]{
+				forward rover -m robotMoveBackwards:robotMoveBackwards(1000);
+				delay 1000;
+				[!? rightDeviation] {
+					println("rover need to deviate to right");
+					forward rover -m robotRotateRight:robotRotateRight(1000);
+					delay 1000;
+					forward rover -m robotMoveForward:robotMoveForward(2000);
+					forward rover -m robotRotateLeft:robotRotateLeft(1000)
+					
+				};
+				[!? leftDeviation] {
+					println("rover need to deviate to left");
+					forward rover -m robotRotateLeft:robotRotateLeft(1000);
+					delay 1000;
+					forward rover -m robotMoveForward:robotMoveForward(2000);
+					forward rover -m robotRotateRight:robotRotateRight(1000)
+					
+				}
+			};
+			
+			[?? arrivingLine] {
+				[?? leftDeviation] delay 7000;
+				[?? rightDeviation] delay 7000;
+				[?? frontObstacle] delay 7000;
+				println("stage2 moveforward");
+				
+				forward rover -m robotMoveForward:robotMoveForward(20000)
+			}
 		}
 		
 	]
@@ -234,7 +265,7 @@ QActor highlevel context ctxRover2{
 	
 	
 	Plan approachingToStartingPoint[
-		
+		 
 	] 
 	transition stopAfter 60000
 		whenEvent alarm -> handleAlarm,
@@ -273,23 +304,39 @@ QActor highlevel context ctxRover2{
 	
 	
 	Plan handleCmd resumeLastPlan[
-		onEvent cmd:X->println(X)
+		onEvent cmd:X->println(X);
+		[!? stage(2)] onEvent cmd:cmd(start) ->{
+			addRule arrivingLine
+		}
 		
 	]
 	
 	
-	
+	/*
+	 * handleDetect viene sparato quando davanti al rover c'è qualcosa
+	 * per valutare i movimenti successivi al rover basta una sola segnalazione
+	 * motivo per cui si fa utilizzo di una regola detection
+	 * se c'è il rover ha visualizzato qualcosa e la regola non sparisce fino a quando non viene gestito l'evento
+	 * se non c'è va aggiunto e descritto il problema
+	 */
 	Plan handleDetect resumeLastPlan[
 		println("handling detect from high");
-		emit robotHold:robotHold(10,2000)
+		[!? stage(2)]{
+			[not !? detection] {
+				forward rover -m robotHold:robotHold(100,10);
+				
+				addRule detection;
+				onEvent sonarDetect:sonarDetect(X) -> addRule object(X);
+				[?? object(pillar1)] addRule rightDeviation;
+				[?? object(pillar2)] addRule leftDeviation;
+				[?? object(dynamicObject)] addRule frontObstacle;
+				addRule arrivingLine
+			}	
+		}
 	]
 	
 	Plan handleSonar resumeLastPlan[ //DA RICORDARE CHE SE HANDLESONAR VIENE ATTIVATO, È TRIVIALE CHE UNITYON ESISTA TRA LE RULES
-		println("handling sonar from high");
-		
-		onEvent sonar:sonar(SONAR,TARGET,DISTANCE) -> println(sonarDebug(SONAR,TARGET,DISTANCE));
-		
-		
+		//println("handling sonar from high");
 		/*
 		 * Premessa, se handleSonar viene chiamato, certamente esiste un rover in mappa
 		 * handleSonar viene chiamato quando il sonar1 o il sonar2 rilevano rover davanti a se
@@ -297,7 +344,7 @@ QActor highlevel context ctxRover2{
 		 * questo significa che la rule approachToLine non serve più in quanto il rover è davanti al sonar1
 		 * e ha raggiunto quindi la linea di rilevamento di partenza passando quindi allo stage(1)
 		 */
-		[!? stage(S)] println(stage(S));
+		//[!? stage(S)] println(stage(S));
 		[!? stage(0)]{ // SI AVVICINA ALLA LINEA
 			[?? approachToLine]{
 				forward rover -m robotHold:robotHold(100,1000);
@@ -313,8 +360,8 @@ QActor highlevel context ctxRover2{
 			removeRule fCurrentDistance(F);
 			removeRule difference(DFF);
 			onEvent sonar:sonar(SONAR,TARGET,DISTANCE) -> addRule fCurrentDistance(DISTANCE);
-			[!? fCurrentDistance(F)] println(firstCurrentDistance(F));
-			[!? startingDistance(S)] println(startingDistance(S));
+			onEvent sonar:sonar(SONAR,TARGET,DISTANCE) -> addRule sonarName(SONAR);
+			
 			
 			demo r2;
 			[!? difference(DFF)] println(snrDifference(DFF));
@@ -324,16 +371,26 @@ QActor highlevel context ctxRover2{
 				[?? goalResult(eval(gt,DFF,0))]{
 					 
 					forward rover -m robotHold:robotHold(100,10);
-					[?? getClose] println("Press start to go");
-					[?? stage(1)] addRule stage(2)	
+					[?? sonarName(sonar1)]{ 
+						[?? stage(1)] addRule stage(2)
+					} else
+					{
+						println("End of the journey");
+						removeRule stage(1)
+					}	
 				}
 			};
 			[!? getFar] {
 				[!? difference(DFF)] demo eval(lt,DFF,0);
 				[?? goalResult(eval(lt,DFF,0))]{ 
 					forward rover -m robotHold :robotHold(100,10);
-					[?? getFar] println("Press start to go");
-					[?? stage(1)] addRule stage(2)
+					[?? sonarName(sonar1)]{ 
+						[?? stage(1)] addRule stage(2)
+					}  else
+					{
+						println("End of the journey");
+						removeRule stage(1)
+					}		
 				}
 			}
 		};
@@ -344,7 +401,11 @@ QActor highlevel context ctxRover2{
 		[!? stage(2)]{
 			onEvent sonar:sonar(sonar2,TARGET,DISTANCE) -> {
 				println("Rover arriving at line of sonar2");
-				[?? arrivingLine] forward rover -m robotHold:robotHold(100,10)
+				removeRule fCurrentDistance(F);
+				removeRule difference(DFF);
+				forward rover -m robotHold:robotHold(100,10);
+				addRule approachToPoint;
+				[?? stage(2)] addRule stage(1)
 			}
 		}
  
