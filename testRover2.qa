@@ -1,7 +1,6 @@
 /*
  * SONO PIAGA
  * STO LAVORANDO SU QUESTO FILE ATTUALMENTE PERCHE' STO FACENDO MOLTI ESPERIMENTI SUI RULES
- * LO TERRÒ IN CONSIDERAZIONE PER FUTURI AGGIORNAMENTI MA QUANDO SAPRÒ BENE COME FARE 
  * TORNO A LAVORARE SUL FILE DI PROGETTO PRINCIPALE
  */
 
@@ -147,7 +146,6 @@ QActor highlevel context ctxRover2{
 	Rules{
 		
 		status:- stage(S).
-		r1:-assign(startingDistance,10),assign(x,0),getVal(startingDistance,V2),getVal(x,V1),eval(minus,V1,V2,RV),actorPrintln(r1(RV)).
 		r2:-startingDistance(S),fCurrentDistance(F),eval(minus,S,F,RV),assert(difference(RV)).
 		r3:- difference(DFF).
 	}
@@ -289,13 +287,10 @@ QActor highlevel context ctxRover2{
 	Plan handleInputCmd resumeLastPlan[
 		println("handling inputcmd");
 		onEvent inputcmd:usercmd(executeInput(X)) -> println(X);
-		[not !? stage(S)] { //SE NON SI È CONNESSI SI SPERA CHE IN EXECUTE CI SIA IL COMANDO DI CONNESSIONE
 			onEvent inputcmd:usercmd(executeInput(connectToUnity(X))) -> emit unityAddr:unityAddr(X);
-			//addRule unityOn; //FLAG PER DIRE CHE SI È CONNESSI
 			addRule stage(0); //NEL MOMENTO IN CUI VIENE CHIAMATO IL PLAN DI CONNESSIONE E CREAZIONE SI COMINCIA CON IL PRIMO STAGE
 			addRule approachToLine //SI DA PERMESSO AL ROVER DI POSIZIONARSI DAVANTI ALLA LINEA DI SONAR1
 		};
-		[not !? startingDistance(X)] { //SE NON SI È IMPOSTATA LA DISTANZA CI SI ASPETTA IL COMANDO DI SETTING DELLA DISTANZA
 			onEvent inputcmd:usercmd(executeInput(startingDistance(X))) -> addRule startingDistance(X);
 			[!? startingDistance(X)] addRule approachToPoint
 		} 
@@ -313,11 +308,8 @@ QActor highlevel context ctxRover2{
 	
 	
 	/*
-	 * handleDetect viene sparato quando davanti al rover c'è qualcosa
 	 * per valutare i movimenti successivi al rover basta una sola segnalazione
 	 * motivo per cui si fa utilizzo di una regola detection
-	 * se c'è il rover ha visualizzato qualcosa e la regola non sparisce fino a quando non viene gestito l'evento
-	 * se non c'è va aggiunto e descritto il problema
 	 */
 	Plan handleDetect resumeLastPlan[
 		println("handling detect from high");
@@ -326,22 +318,20 @@ QActor highlevel context ctxRover2{
 				forward rover -m robotHold:robotHold(100,10);
 				
 				addRule detection;
-				onEvent sonarDetect:sonarDetect(X) -> addRule object(X);
-				[?? object(pillar1)] addRule rightDeviation;
-				[?? object(pillar2)] addRule leftDeviation;
-				[?? object(dynamicObject)] addRule frontObstacle;
+				//onEvent sonarDetect:sonarDetect(X) -> addRule object(X);				
+				onEvent sonarDetect:sonarDetect(pillar1) -> addRule rightDeviation;
+				onEvent sonarDetect:sonarDetect(pillar2) -> addRule leftDeviation;
+				onEvent sonarDetect:sonarDetect(dynamicobstacle) -> addRule frontObstacle;
 				addRule arrivingLine
 			}	
 		}
 	]
 	
-	Plan handleSonar resumeLastPlan[ //DA RICORDARE CHE SE HANDLESONAR VIENE ATTIVATO, È TRIVIALE CHE UNITYON ESISTA TRA LE RULES
 		//println("handling sonar from high");
 		/*
 		 * Premessa, se handleSonar viene chiamato, certamente esiste un rover in mappa
 		 * handleSonar viene chiamato quando il sonar1 o il sonar2 rilevano rover davanti a se
 		 * quindi la seguente guardia [!? stage(0)] viene chiamato quando sonar1 rileva rover
-		 * questo significa che la rule approachToLine non serve più in quanto il rover è davanti al sonar1
 		 * e ha raggiunto quindi la linea di rilevamento di partenza passando quindi allo stage(1)
 		 */
 		//[!? stage(S)] println(stage(S));
@@ -415,7 +405,6 @@ QActor highlevel context ctxRover2{
 	Plan handleAlarm[
 		println("Alarm fired");
 		emit robotHold:robotHold(50,1000)
-	]
 	
 	Plan handleEnd[
 		println('End of hl operation')
@@ -428,5 +417,4 @@ QActor highlevel context ctxRover2{
 	
 }
  
-
 
