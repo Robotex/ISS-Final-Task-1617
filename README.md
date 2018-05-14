@@ -1,5 +1,14 @@
 # ISS-Final-Task-1617
 
+OBIETTIVI:
+1) Se un utente non imposta la distanza, prendere quella dello spawn di default.
+(fare plan che faccia ciò)
+2) cambiare il nome di stage0 in OnSonarLine
+3) Fare in modo che un utente possa inserire più volte la startingDistance (prima dello start)
+4) Rimuovere il "passo indietro" quando viene rilevato un dynamicObstacle
+5) cambiare il nome di stage1 in GoToSonar
+6) quando il robot arriva al sonar 2, deve tornare alla startingDistance iniziale
+
 Domande e risposte per il progetto
 
 Requisiti
