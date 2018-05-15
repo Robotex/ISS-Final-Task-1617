@@ -59,7 +59,7 @@ QActor rover context ctxRover3 {
 		onEvent unityAddr:unityAddr(X)-> actorOp workWithUnity(X);
 		actorOp createSimulatedActor
 		
-	] switchTo rotateRight
+	]
 
 
 	//MUOVITI IN AVANTI
@@ -69,8 +69,8 @@ QActor rover context ctxRover3 {
 		onMsg robotMoveForward:robotMoveForward(T) -> addRule timing(T);
 		[!? timing(T)] println(forwardTiming(T))
 	]
-	reactive [?? timing(T)] onward 25 time(T)
-		whenEnd -> endOfMovement
+	reactive [?? timing(T)] onward 30 time(T)
+		whenEnd -> endOfStep
 		whenTout 100000-> handleTout
 		whenEvent robotHold -> endOfMovement
 		
@@ -91,45 +91,25 @@ QActor rover context ctxRover3 {
 		
 	Plan rotateLeft resumeLastPlan[
 		println("Rotating Left");
-		left 50 time (1000)
-	] switchTo endOfStep
+		left 100 time (1000)
+	]
 	
 	Plan rotateRight resumeLastPlan[
 		println("Rotating Right");
-		right 50 time(1000)
-	] switchTo endOfStep
+		right 100 time(1000)
+	]
 	
-	/*Plan moveLeft resumeLastPlan[
-		println("Moving left");
-		left 50 time(1000);
-		addRule leftMovement;
-		addRule translation
-	] switchTo moveForward
-	
-		
-	Plan moveRight resumeLastPlan[
-		println("Moving right");
-		right 50 time(1000);
-		addRule rightMovement;
-		addRule translation
-	] switchTo moveForward
-	*/
 	
 	
 	Plan endOfStep resumeLastPlan[
 		
-		[?? translation] delay 100
+		
 	]
 	
 		
 	Plan endOfMovement[
 		onEvent robotHold:X -> println("robot hold called");
-		stop 100 time (10);
-		[?? leftMovement] right 50 time(1000);
-		[?? rightMovement] left 50 time(1000)
-		
-		
-		 
+		stop 0 time(0)
 	]
 	switchTo loop
 	
@@ -195,53 +175,105 @@ QActor highlevel context ctxRover3{
 	Plan onSonarLine [
 		//DA IMPLEMENTARE
 		
-		
+		[not !? stepWorkDone]{
+			[!? difference(DFF)] {
+				[!? difference(DFF)] demo eval(lt,DFF,0);
+				[!? goalResult(eval(lt,DFF,0))] {
+					[not !? getClose]{
+					 	forward rover -m robotMoveForward:robotMoveForward(10000);
+					 	println("Getting close");
+						addRule getClose 
+					 }
+				}
+				else {
+					[not !? getFar]{
+						forward rover -m robotMoveBackwards:robotMoveBackwards(10000);
+						println("Getting far");
+						addRule getFar
+					} 
+				}
+			}
+		}
 	]
 	transition stopAfter 100000
 		whenEvent alarm-> handle_alarm,
-		whenEvent inputcmd -> onSonarLine_inputcmd,
+		whenEvent sonar -> onSonarLine_sonar,
 		whenEvent cmd->onSonarLine_start,
-		whenEvent sonar -> onSonarLine_sonar
+		whenEvent inputcmd -> onSonarLine_inputcmd
 	finally repeatPlan
 	
 	Plan onSonarLine_inputcmd resumeLastPlan[
 		onEvent inputcmd:X -> println(input_fired(X)); //debug
 		
-		[?? startingDistance(S)] onEvent inputcmd:usercmd(startingDistance(S)) -> addRule startingDistance(S)
-		else onEvent inputcmd:usercmd(startingDistance(S)) -> addRule startingDistance(S)
-	]
+		[?? startingDistance(S)] onEvent inputcmd:usercmd(executeInput(startingDistance(S))) -> addRule startingDistance(S)
+		else onEvent inputcmd:usercmd(executeInput(startingDistance(S))) -> addRule startingDistance(S);
+		
+		onEvent inputcmd:usercmd(executeInput(startingDistance(S))) -> {
+			[?? stepWorkDone] {
+				println("Clearing SP rules");
+				removeRule getFar;
+				removeRule getClose;
+				removeRule difference(DFF)	
+			}
+		}
+
+	] 
 	
 	Plan onSonarLine_start resumeLastPlan[
+		onEvent cmd:X -> println(X);
 		onEvent cmd:cmd(start) -> {
-			addRule start
-		}
-	] switchTo [!? start] stage1
+			forward rover -m robotRotateRight:robotRotateRight(1000);
+			[?? stepWorkDone] addRule run 
+		};
+		[!? run] println("I'm ready to change stage")
+	] 
+	transition [!? run] whenTime 1000 -> stage1
+	whenEvent alarm -> handle_alarm
+	
+	
 	
 	Plan onSonarLine_sonar resumeLastPlan[
 		[!? fCurrentDistance(D)] removeRule fCurrentDistance(D);
 		[!? difference(DFF)] removeRule difference(DFF);
 		[!? sonarName(SONAR)] removeRule sonarName(SONAR);
-		 
+		
 		onEvent sonar:sonar(SONAR,rover,DISTANCE) -> addRule fCurrentDistance(DISTANCE);
-		onEvent sonar:sonar(SONAR,rover,DISTANCE) -> addRule sonarName(SONAR);
+		[not !? sonar2] onEvent sonar:sonar(sonar2,rover,DISTANCE) -> addRule sonar2;
+		[!? fCurrentDistance(DISTANCE)] println(fDistance(DISTANCE));
 		demo r2;
-		[!? difference(DFF)] println(snrDifference(DFF));
 		[!? getClose] {
+			
 			[!? difference(DFF)] demo eval(gt,DFF,0);
+			[!? difference(DFF)] println(difference(DFF));
 			[?? goalResult(eval(gt,DFF,0))] {
-				forward rover -m robotHold:robotHold(100);
-				[?? sonarName(sonar2)] addRule endOfWork				
+				[not !? stepWorkDone]{
+					forward rover -m robotHold:robotHold(100);
+					addRule stepWorkDone
+				};
+				
+				[?? sonar2] {
+					 addRule endOfWork;
+					 println("sonar2 eow")
+				 }				
 			}
 		};
 		[!? getFar] {
+			[!? difference(DFF)] println(difference(DFF));
 			[!? difference(DFF)] demo eval(lt,DFF,0);
 			[?? goalResult(eval(lt,DFF,0))]{
-				forward rover -m robotHold:robotHold(100);
-				[?? sonarName(sonar2)] addRule endOfWork
+				[not !? stepWorkDone]{
+					forward rover -m robotHold:robotHold(100);
+					addRule stepWorkDone
+				};
+				
+				[?? sonar2] { 
+					addRule endOfWork;
+					println("sonar2 eow")
+				}
 			}
 		}
 	]
-	transition [?? endOfWork] whenTime 500 -> endOfWork  
+	switchTo [?? endOfWork] endOfWork  
 	
 	/*
 	 *  STAGE 1
@@ -254,25 +286,40 @@ QActor highlevel context ctxRover3{
 	
 	Plan stage1[
 		//DA IMPLEMENTARE
-		[!? start] {
-			forward rover -m robotMoveForward:robotMoveForward(10000)
+		println("Stage1 loop");
+		[?? run] {
+			println("Going forward with stage1");
+			forward rover -m robotMoveForward:robotMoveForward(20000)
 		}
 	]
-	transition stopAfter 100000
+	transition stopAfter 25000
 		whenEvent alarm-> handle_alarm,
 		whenEvent sonar -> stage1_sonar, //SE QUESTO SCATTA E TUTTO VA BENE SI PASSA AL SUCCESSIVO onSonarLine
 		whenEvent sonarDetect -> stage1_obstacleAvoidingManagement //SE QUESTO SCATTA: fixed or dynamic
 	finally repeatPlan
 	
 	Plan stage1_sonar resumeLastPlan[
+		onEvent sonar:X->println(X);
 		[?? fCurrentDistance(F)] onEvent sonar:sonar(sonar2,rover,DISTANCE) -> addRule fCurrentDistance(DISTANCE);
 		onEvent sonar:sonar(sonar2,rover,DISTANCE) -> {
-			 forward rover -m robotHold:robotHold(1000);
-			 forward rover -m robotRotateLeft:robotRotateLeft(1000);
-			 addRule stepWorkDone
+			addRule stepWorkDone
 		 } 
 		
-	] switchTo [?? stepWorkDone] onSonarLine 
+	]
+	switchTo [?? stepWorkDone] stage1_approachedToSonar2
+	
+	
+	Plan stage1_approachedToSonar2[
+		println("sonar2 from stage1_sonar");
+		forward rover -m robotHold:robotHold(1000);
+		forward rover -m robotRotateLeft:robotRotateLeft(1000);
+		println("Clearing SP rules");
+		removeRule getFar;
+		removeRule getClose;
+		removeRule difference(DFF)
+	]
+	transition whenTime 2000->onSonarLine
+	whenEvent alarm->handle_alarm
 	
 	/*
 	 * Quando sonarDetect scatta significa che il rover ha davanti qualcosa, bisogna capire cos'è
@@ -285,34 +332,29 @@ QActor highlevel context ctxRover3{
 	 * davanti al rover c'è un fixed altrimenti dynamic
 	 * 
 	 */
-	Plan stage1_obstacleAvoidingManagement [
-		forward rover -m robotHold:robotHold(100)
+	Plan stage1_obstacleAvoidingManagement resumeLastPlan [
+		forward rover -m robotHold:robotHold(1000);
+		
+		addRule run
 	]
 	transition 
-		whenTime 100 -> stage1
-		whenEvent alarm -> handle_alarm,
-		whenEvent sonarDetect-> stage1_handleDetection
-	finally repeatPlan
+		whenTime 4000 -> stage1_evaluateDetection
+		whenEvent alarm -> handle_alarm
+		//whenEvent sonarDetect-> stage1_handleDetection
 	
 	
 	 
-	Plan stage1_handleDetection [
-		//HO TROVATO DAVANTI A ME UN OGGETTO E DEVO CHIEDERMI SE È FIXED O DYNAMIC
-		//ASPETTO QUINDI 2 SECONDI
-		println("Evaluating: waiting")
-	]
-	transition
-		whenTime 2000 -> stage1_evaluateDetection
-		whenEvent alarm -> handle_alarm
 	
 	
 	Plan stage1_evaluateDetection [
 		//HO ASPETTATO 2 SECONDI
 		//SE L'ALLARME SCATTA DI NUOVO ALLORA SIAMO DI FRONTE A
+		
 		println("Evaluating: done") 
 	]
 	transition
-		whenTime 500 -> stage1_obstacleAvoidingManagement
+		whenTime 500 -> stage1
+		whenEvent alarm->handle_alarm,
 		whenEvent sonarDetect->stage1_managingFixedObject_startloop
 	
 	/*
@@ -326,38 +368,48 @@ QActor highlevel context ctxRover3{
 	 * 
 	 */	
 	Plan stage1_managingFixedObject_startloop [
-		[not !? leftEdge] forward rover -m robotRotateLeft:robotRotateLeft(500)
-		else forward rover -m robotRotateRight:robotRotateRight(500)
+		addRule avoidingLoop;
+		forward rover -m robotMoveBackwards:robotMoveBackwards(1000);
+		[not !? leftEdge] forward rover -m robotRotateLeft:robotRotateLeft(1000)
+		else forward rover -m robotRotateRight:robotRotateRight(1000)
 	]
 	transition
-		whenTime 500 -> stage1_managingFixedObject_bodyloop
+		whenTime 2000 -> stage1_managingFixedObject_bodyloop
 		whenEvent alarm-> handle_alarm
-	finally repeatPlan
 	
 	Plan stage1_managingFixedObject_bodyloop [
-		[not !? leftEdgeDetected] forward rover -m robotMoveForward:robotMoveForward(2000)
+		[not !? leftEdgeDetected]{
+			println("Avoiding fixed obstacle");
+			forward rover -m robotMoveForward:robotMoveForward(2000)
+		} else {
+			println("left edge detected")
+		}
 	]
 	transition
-		whenTime 2000->stage1_managingFixedObject_endloop
+		whenTime 3000->stage1_managingFixedObject_endloop
 		whenEvent alarm->handle_alarm,
-		whenEvent sonarDetect:sonarDetect(X) do { //QUESTO DEVE CHIAMARE ESCLUSIVAMENTE IN PRESENZA DI EDGE SINISTRO
-			forward rover -m robotHold:robotHold(1000);
-			addRule leftEdgeDetected
+		whenEvent [not !? leftEdge] sonarDetect:sonarDetect(X) do { //QUESTO DEVE CHIAMARE ESCLUSIVAMENTE IN PRESENZA DI EDGE SINISTRO
+			println("detecting left edge");
+			forward rover -m robotHold:robotHold(100);
+			forward rover -m robotMoveBackwards:robotMoveBackwards(1000);
+			addRule leftEdgeDetected;
+			addRule leftEdge
 		}
 	finally repeatPlan
 	
 	Plan stage1_managingFixedObject_endloop[
 		[?? leftEdgeDetected] { //QUESTO SI VERIFICA SOLO QUANDO SI VA A SINISTRA E SI TROVA UN LEFTEDGE
-			forward rover -m robotRotateRight:robotRotateRight(500);
-			addRule leftEdge
+			forward rover -m robotRotateRight:robotRotateRight(1000)
+			
 		}
 		else {
-			[not !? leftEdge] forward rover -m robotRotateRight:robotRotateRight(500)
-			else forward rover -m robotRotateLeft:robotRotateLeft(500) 
+			[not !? leftEdge] forward rover -m robotRotateRight:robotRotateRight(1000)
+			else forward rover -m robotRotateLeft:robotRotateLeft(1000) 
 		}
+		
 	]
 	transition
-		whenTime 500->stage1_obstacleAvoidingManagement
+		whenTime 2000->stage1
 		whenEvent alarm -> handle_alarm
 	
 	
