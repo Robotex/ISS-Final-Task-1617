@@ -8,9 +8,6 @@
 
 
 System testRover3
-
-
-
  
 Dispatch robotMoveLeft 		: robotMoveLeft(TIME)
 Dispatch robotRotateLeft	: robotRotateLeft(TIME)
@@ -18,6 +15,7 @@ Dispatch robotMoveRight 	: robotMoveRight(TIME)
 Dispatch robotRotateRight	: robotRotateRight(TIME)
 Dispatch robotMoveForward	: robotMoveForward(TIME)
 Dispatch robotMoveBackwards	: robotMoveBackwards(TIME)
+Dispatch provaa: provaa
 
 Event unityAddr				: unityAddr(ADDR)
 Event robotHold 			: robotHold(TIME)
@@ -36,6 +34,24 @@ Context  ctxRover3  ip [ host="localhost"  port=8070 ] -httpserver
 EventHandler alarmh for alarm -print {memoCurrentEvent -lastonly for highlevel};
 
 
+QActor movementsregister context ctxRover3 {
+	Plan loop normal[
+	]
+	transition stopAfter 60000
+		whenMsg robotMoveForward -> test,
+		whenMsg robotMoveBackwards -> test,
+		whenMsg robotRotateLeft -> test,
+		whenMsg robotRotateRight -> test
+	finally repeatPlan
+	
+	Plan test resumeLastPlan[		
+		onMsg robotMoveForward:robotMoveForward(TIME) -> javaRun it.unibo.custom.path.register("robotMoveForward:robotMoveForward", TIME);
+		onMsg robotRotateLeft:robotRotateLeft(TIME) -> javaRun it.unibo.custom.path.register("robotRotateLeft:robotRotateLeft", TIME);
+		onMsg robotRotateRight:robotRotateRight(TIME) -> javaRun it.unibo.custom.path.register("robotRotateRight:robotRotateRight", TIME); 
+		onMsg robotMoveBackwards:robotMoveBackwards(TIME) -> javaRun it.unibo.custom.path.register("robotMoveBackwards:robotMoveBackwards", TIME)
+	]
+	
+}
 QActor rover context ctxRover3 {
 	//INIZIA ED ASPETTA EVENTI O MESSAGGI
 	Rules{
@@ -43,6 +59,15 @@ QActor rover context ctxRover3 {
 	}
 	
 	Plan loop normal[
+	//	javaRun it.unibo.custom.path.testMsg("we");
+		forward movementsregister -m robotMoveForward:robotMoveForward(2000);
+		delay time(500);
+		forward movementsregister -m robotRotateLeft:robotRotateLeft(2000);
+		delay time(500);		
+		forward movementsregister -m robotRotateRight:robotRotateRight(2000);
+		delay time(500);	
+		forward movementsregister -m robotMoveBackwards:robotMoveBackwards(2000)
+		
 	]
 	transition stopAfter 60000
 		whenEvent unityAddr->doConnectToUnity,
@@ -53,16 +78,17 @@ QActor rover context ctxRover3 {
 		whenMsg robotRotateRight -> rotateRight
 	finally repeatPlan
 	
-	
 	Plan doConnectToUnity resumeLastPlan[
 		println("connectingToUnity");
 		onEvent unityAddr:unityAddr(X)-> actorOp workWithUnity(X);
-		actorOp createSimulatedActor 
+		actorOp createSimulatedActor   
 	]
 
 
 	//MUOVITI IN AVANTI
 	Plan moveForward [
+		println("Received forward!");
+		forward movementsregister -m robotMoveForward:robotMoveForward(TIME);
 		onMsg robotMoveForward:robotMoveForward(TIME) -> addRule timing(TIME);
 		[!? timing(TIME)] println(forwardsTime(TIME))
 	]
@@ -72,8 +98,10 @@ QActor rover context ctxRover3 {
 		whenEvent robotHold -> endOfMovement
 	
 	
-	//MUOVITI INDIETRO
+	//MUOVITI INDIETRO 
 	Plan moveBackwards [
+		println("Received backward!");
+		forward movementsregister -m robotMoveBackwards:robotMoveBackwards(TIME);
 		onMsg robotMoveBackwards:robotMoveBackwards(TIME) -> addRule timing(TIME);
 		[!? timing(TIME)] println(backwardsTime(TIME))
 	]
@@ -83,6 +111,8 @@ QActor rover context ctxRover3 {
 		whenEvent robotHold -> endOfMovement
 	
 	Plan rotateLeft [
+		println("Received left!");
+		forward movementsregister -m robotRotateLeft:robotRotateLeft(TIME);
 		onMsg robotRotateLeft:robotRotateLeft(TIME) -> addRule timing(TIME);
 		[!? timing(TIME)] println(leftTime(TIME));
 		[!? timing(TIME)] left 20 time(TIME)
@@ -92,6 +122,8 @@ QActor rover context ctxRover3 {
 		whenEvent robotHold -> endOfMovement
 	
 	Plan rotateRight [
+		println("Received right!");
+		forward movementsregister -m robotRotateRight:robotRotateRight(TIME);
 		onMsg robotRotateRight:robotRotateRight(TIME) -> addRule timing(TIME);
 		[!? timing(TIME)] println(rightTime(TIME));
 		[!? timing(TIME)] right 20 time(TIME)
