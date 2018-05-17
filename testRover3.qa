@@ -57,7 +57,7 @@ QActor rover context ctxRover3 {
 	Plan doConnectToUnity resumeLastPlan[
 		println("connectingToUnity");
 		onEvent unityAddr:unityAddr(X)-> actorOp workWithUnity(X);
-		actorOp createSimulatedActor
+		actorOp createSimulatedActor 
 	]
 
 
@@ -82,30 +82,10 @@ QActor rover context ctxRover3 {
 		whenTout 100000-> handleTout
 		whenEvent robotHold -> endOfMovement
 	
-	
-		
-	/*Plan rotateLeft [
-		onMsg robotRotateLeft:robotRotateLeft(TIME) -> addRule timing(TIME);
-		[!? timing(TIME)] println(leftTime(TIME))
-	]
-	reactive [!? timing(TIME)] left 100 time(TIME)
-		whenEnd -> endOfStep
-		whenTout 100000-> handleTout
-		whenEvent robotHold -> endOfMovement
-	
-	Plan rotateRight [
-		onMsg robotRotateRight:robotRotateRight(TIME) -> addRule timing(TIME);
-		[!? timing(TIME)] println(rightTime(TIME))
-	]
-	reactive [!? timing(TIME)] right 100 time(TIME)
-		whenEnd -> endOfStep
-		whenTout 100000-> handleTout
-		whenEvent robotHold -> endOfMovement
-		*/
 	Plan rotateLeft [
 		onMsg robotRotateLeft:robotRotateLeft(TIME) -> addRule timing(TIME);
 		[!? timing(TIME)] println(leftTime(TIME));
-		[!? timing(TIME)] left 50 time(TIME)
+		[!? timing(TIME)] left 20 time(TIME)
 	]
 	transition
 		whenTime 450 -> endOfStep
@@ -114,23 +94,23 @@ QActor rover context ctxRover3 {
 	Plan rotateRight [
 		onMsg robotRotateRight:robotRotateRight(TIME) -> addRule timing(TIME);
 		[!? timing(TIME)] println(rightTime(TIME));
-		[!? timing(TIME)] right 50 time(TIME)
+		[!? timing(TIME)] right 20 time(TIME)
 	]
 	transition
 		whenTime 450 -> endOfStep
 		whenEvent robotHold -> endOfMovement
 		
 	Plan endOfMovement [
-		
-		println("Movement: stop")
-		
+		removeRule timing(TIME);
+		onEvent robotHold:robotHold(TIME) -> addRule timing(TIME)
 	]
-	reactive [?? timing(TIME)] stop 100 time(1000)
+	reactive [!? timing(TIME)] stop 20 time(TIME)
 		whenEnd -> endOfStep
 		whenTout 100000-> handleTout
 		whenEvent robotHold -> handleAlarm
 	
 	Plan endOfStep [
+		println(robotDone);
 		[?? timing(TIME)] emit robotDone:robotDone(TIME)
 	]
 	switchTo loop
@@ -184,8 +164,7 @@ QActor highlevel context ctxRover3{
 		
 		onEvent inputcmd:usercmd(executeInput(connectToUnity(IP))) -> emit unityAddr:unityAddr(IP);
 		onEvent inputcmd:usercmd(executeInput(connectToUnity(IP))) ->{
-			addRule unityOn;
-			addRule stepWorkDone
+			addRule unityOn
 		};
 		
 		[?? startingDistance(S)] onEvent inputcmd:usercmd(startingDistance(S)) -> addRule startingDistance(S)
@@ -213,14 +192,14 @@ QActor highlevel context ctxRover3{
 				[!? difference(DFF)] demo eval(lt,DFF,0);
 				[!? goalResult(eval(lt,DFF,0))] {
 					[not !? getClose]{
-					 	forward rover -m robotMoveForward:robotMoveForward(20000);
+					 	forward rover -m robotMoveForward:robotMoveForward(2000);
 					 	println("Getting close");
 						addRule getClose 
 					 }
 				}
 				else {
 					[not !? getFar]{
-						forward rover -m robotMoveBackwards:robotMoveBackwards(20000);
+						forward rover -m robotMoveBackwards:robotMoveBackwards(2000);
 						println("Getting far");
 						addRule getFar
 					} 
@@ -230,23 +209,25 @@ QActor highlevel context ctxRover3{
 	]
 	transition stopAfter 100000
 		whenEvent alarm-> handle_alarm,
-		whenEvent sonar -> onSonarLine_sonar,
+		whenEvent [not !? stepWorkDone] sonar -> onSonarLine_sonar,
+		whenEvent robotDone-> onSonarLine_done,
 		whenEvent cmd->onSonarLine_start,
 		whenEvent inputcmd -> onSonarLine_inputcmd
 	finally repeatPlan
 	
 	Plan onSonarLine_inputcmd resumeLastPlan[
 		onEvent inputcmd:X -> println(input_fired(X)); //debug
-		
-		[?? startingDistance(S)] onEvent inputcmd:usercmd(executeInput(startingDistance(S))) -> addRule startingDistance(S)
-		else onEvent inputcmd:usercmd(executeInput(startingDistance(S))) -> addRule startingDistance(S);
-		
-		onEvent inputcmd:usercmd(executeInput(startingDistance(S))) -> {
-			[?? stepWorkDone] {
-				println("Clearing SP rules");
-				removeRule getFar;
-				removeRule getClose;
-				removeRule difference(DFF)	
+		[not !? started] {
+			[?? startingDistance(S)] onEvent inputcmd:usercmd(executeInput(startingDistance(S))) -> addRule startingDistance(S)
+			else onEvent inputcmd:usercmd(executeInput(startingDistance(S))) -> addRule startingDistance(S);
+			
+			onEvent inputcmd:usercmd(executeInput(startingDistance(S))) -> {
+				[?? stepWorkDone] {
+					println("Clearing SP rules");
+					removeRule getFar;
+					removeRule getClose;
+					removeRule difference(DFF)	
+				}
 			}
 		}
 	] 
@@ -258,14 +239,18 @@ QActor highlevel context ctxRover3{
 				println("not reached or selected, using actual distance");
 				emit robotHold:robotHold(100);
 				[!? fCurrentDistance(F)] addRule startingDistance(F);
+				[!? startingDistance(S)] println(startingWith(S));
 				addRule stepWorkDone
 			};
 			[?? stepWorkDone] {
 				println("reachedPoint");
+				forward rover -m robotRotateRight:robotRotateRight(1000);
+				addRule started; //QUESTA REGOLA IMPEDISCE LA MODIFICA DELLA STARTING DISTANCE DURANTE L'ESERCIZIO
 				addRule run
 			}
-		};
-		forward rover -m robotRotateRight:robotRotateRight(1000)
+			
+		}
+		
 	] 
 	transition
 		whenTime 5000 -> onSonarLine
@@ -275,19 +260,16 @@ QActor highlevel context ctxRover3{
 	Plan onSonarLine_sonar resumeLastPlan[
 		[!? fCurrentDistance(D)] removeRule fCurrentDistance(D);
 		[!? difference(DFF)] removeRule difference(DFF);
-		[!? sonarName(SONAR)] removeRule sonarName(SONAR);
+		
 		
 		onEvent sonar:sonar(SONAR,rover,DISTANCE) -> addRule fCurrentDistance(DISTANCE);
-		[not !? sonar2] onEvent sonar:sonar(sonar2,rover,DISTANCE) -> addRule sonar2;
+		[?? sonar2] onEvent sonar:sonar(sonar2,rover,DISTANCE) -> addRule sonar2;
 		
 		demo r2;
 		[!? getClose] {
-			
 			[!? difference(DFF)] demo eval(gt,DFF,0);
 			[?? goalResult(eval(gt,DFF,0))] {
 				[not !? stepWorkDone]{
-					emit robotHold:robotHold(100);
-					println("onSonarLine_sonar stepWorkDone");
 					addRule stepWorkDone
 				};
 				
@@ -299,9 +281,9 @@ QActor highlevel context ctxRover3{
 		};
 		[!? getFar] {
 			[!? difference(DFF)] demo eval(lt,DFF,0);
+			
 			[?? goalResult(eval(lt,DFF,0))]{
 				[not !? stepWorkDone]{
-					emit robotHold:robotHold(100);
 					addRule stepWorkDone
 				};
 				
@@ -311,10 +293,21 @@ QActor highlevel context ctxRover3{
 				}
 			}
 		}
+	] switchTo [!? stepWorkDone] onSonarLine_sonar_done
+	
+	Plan onSonarLine_sonar_done[
+		println("sonarLine_sonar done");
+		emit robotHold:robotHold(100)
 	]
-	switchTo [?? endOfWork] endOfWork  
+	transition stopAfter 10000
+	whenEvent alarm -> handle_alarm,
+	whenEvent robotDone-> onSonarLine
 	
 	
+	Plan onSonarLine_done resumeLastPlan[
+		removeRule getClose;
+		removeRule getFar
+	]
 	
 	
 	/*
@@ -327,46 +320,50 @@ QActor highlevel context ctxRover3{
 	 */
 	
 	Plan stage1[
-		//DA IMPLEMENTARE
-		[?? run]
-		{
+		[?? run]{ 
 			println("Going forward with stage1");
-			forward rover -m robotMoveForward:robotMoveForward(20000)
+			forward rover -m robotMoveForward:robotMoveForward(2000)
 		}
-		
 	]
 	transition stopAfter 25000
 		whenEvent alarm-> handle_alarm,
 		whenEvent sonar -> stage1_sonar, //SE QUESTO SCATTA E TUTTO VA BENE SI PASSA AL SUCCESSIVO onSonarLine
 		whenEvent sonarDetect -> stage1_obstacleAvoidingManagement, //SE QUESTO SCATTA: fixed or dynamic
-		whenEvent robotDone:robotDone(TIME) do{ println(notDoneYet(TIME)); addRule run}
+		whenEvent robotDone->stage1_repeat
 	finally repeatPlan
+	
+	Plan stage1_repeat resumeLastPlan[
+		println("Keep going");
+		addRule run
+	]
 	
 	Plan stage1_sonar resumeLastPlan[
 		[?? fCurrentDistance(F)] onEvent sonar:sonar(sonar2,rover,DISTANCE) -> addRule fCurrentDistance(DISTANCE);
 		onEvent sonar:sonar(sonar2,rover,DISTANCE) -> {
-			emit robotHold:robotHold(400);
+			println("Reached to sonar2");
 			addRule stepWorkDone
 		 } 
 	]
-	switchTo [?? stepWorkDone] stage1_preparingToApproachingEndingPoint
-	
-	
-	/*Plan stage1_approachedToSonar2Line[
+	switchTo [?? stepWorkDone] stage1_approachedToSonar2Line
+		
+	Plan stage1_approachedToSonar2Line[
 		println("sonar2 from stage1_sonar");
-		emit robotHold:robotHold(1000)
+		emit robotHold:robotHold(500)
 	]
-	transition whenTime 1000->stage1_preparingToApproachingEndingPoint
-	whenEvent alarm->handle_alarm*/
+	transition stopAfter 10000
+		whenEvent alarm->handle_alarm,
+		whenEvent robotDone ->stage1_preparingToApproachingEndingPoint
 	
 	Plan stage1_preparingToApproachingEndingPoint[
-		forward rover -m robotRotateLeft:robotRotateLeft(1000);
-		println("Clearing SP rules");
+		
+		
 		removeRule getFar;
 		removeRule getClose;
-		removeRule difference(DFF)
+		removeRule difference(DFF);
+		println("Prepare to ending");
+		forward rover -m robotRotateLeft:robotRotateLeft(500)
 	]
-	transition stopAfter 60000
+	transition stopAfter 10000
 		whenEvent alarm->handle_alarm,
 		whenEvent robotDone -> onSonarLine
 	
@@ -384,13 +381,12 @@ QActor highlevel context ctxRover3{
 	Plan stage1_obstacleAvoidingManagement resumeLastPlan [
 		println("obstacleAvoidingManagement");
 		addRule run;
-		emit robotHold:robotHold(1000)
+		emit robotHold:robotHold(4000)
 	]
-	transition 
-		whenTime 4000 -> stage1_evaluateDetection
-		whenEvent alarm -> handle_alarm
+	transition stopAfter 10000 		
+		whenEvent alarm -> handle_alarm,
+		whenEvent robotDone -> stage1_evaluateDetection
 		
-	
 	Plan stage1_evaluateDetection [
 		println("Evaluating: done") 
 	]
@@ -417,8 +413,6 @@ QActor highlevel context ctxRover3{
 		whenEvent alarm->handle_alarm,
 		whenEvent robotDone->stage1_managingFixedObject_loop_firstRotation
 	
-	
-	
 	Plan stage1_managingFixedObject_loop_firstRotation [
 		
 		[not !? leftEdge] forward rover -m robotRotateLeft:robotRotateLeft(500)
@@ -439,28 +433,33 @@ QActor highlevel context ctxRover3{
 		whenEvent robotDone -> stage1_managingFixedObject_endloop
 	finally repeatPlan
 	
-	
 	Plan stage1_managingFixedObject_loop_edgeDetected [
 		println("detecting left edge");
-		emit robotHold:robotHold(100);
-		forward rover -m robotMoveBackwards:robotMoveBackwards(1000);
+		emit robotHold:robotHold(400);
 		addRule edgeDetected;
-		addRule leftEdge
+		[not !? leftEdge]
+			addRule leftEdge
+		else
+			removeRule leftEdge
 	] 
 	transition stopAfter 10000
 		whenEvent alarm->handle_alarm,
-		whenEvent robotDone -> stage1_managingFixedObject_endloop //DURATA RETRO-TRASLAZIONE LATERALE POST EDGE DETECTION
+		whenEvent robotDone -> stage1_managingFixedObject_loop_edgeDetected_backward //DURATA RETRO-TRASLAZIONE LATERALE POST EDGE DETECTION
 	
-	/*Plan stage1_managingFixedObject_loop_edgeDetected_stop [
-		emit robotHold:robotHold(100)
+	Plan stage1_managingFixedObject_loop_edgeDetected_backward [
+		forward rover -m robotMoveBackwards:robotMoveBackwards(1000)
 	]
-	transition whenTime 1000-> stage1_managingFixedObject_loop_avoiding
-	whenEvent alarm->handle_alarm*/
+	transition
+		stopAfter 10000
+		whenEvent alarm->handle_alarm,
+		whenEvent robotDone -> stage1_managingFixedObject_endloop
 	
 	Plan stage1_managingFixedObject_endloop[
 		
 		[?? edgeDetected] { //QUESTO SI VERIFICA SOLO QUANDO SI VA A SINISTRA E SI TROVA UN LEFTEDGE
-			forward rover -m robotRotateRight:robotRotateRight(500)
+			[!? leftEdge]	forward rover -m robotRotateRight:robotRotateRight(500)
+			else forward rover -m robotRotateLeft:robotRotateLeft(500)
+			
 			
 		}
 		else {
@@ -480,14 +479,12 @@ QActor highlevel context ctxRover3{
 	Plan handle_alarm [
 		println("handling alarm")
 	]
-	
 	Plan handleEnd [
 		println("handling end")
 	]
 	Plan handleTout [
 		println("handling tout")
 	]
-	
 	Plan endOfWork [
 		println("Well done, end of work")
 	]
