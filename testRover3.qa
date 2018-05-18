@@ -15,7 +15,6 @@ Dispatch robotMoveRight 	: robotMoveRight(TIME)
 Dispatch robotRotateRight	: robotRotateRight(TIME)
 Dispatch robotMoveForward	: robotMoveForward(TIME)
 Dispatch robotMoveBackwards	: robotMoveBackwards(TIME)
-Dispatch provaa: provaa
 
 Event unityAddr				: unityAddr(ADDR)
 Event robotHold 			: robotHold(TIME)
