@@ -15,6 +15,7 @@ Dispatch robotMoveRight 	: robotMoveRight(TIME)
 Dispatch robotRotateRight	: robotRotateRight(TIME)
 Dispatch robotMoveForward	: robotMoveForward(TIME)
 Dispatch robotMoveBackwards	: robotMoveBackwards(TIME)
+Dispatch reversePath : reversePath
 
 Event unityAddr				: unityAddr(ADDR)
 Event robotHold 			: robotHold(TIME)
@@ -40,14 +41,17 @@ QActor movementsregister context ctxRover3 {
 		whenMsg robotMoveForward -> test,
 		whenMsg robotMoveBackwards -> test,
 		whenMsg robotRotateLeft -> test,
-		whenMsg robotRotateRight -> test
+		whenMsg robotRotateRight -> test,
+		whenMsg reversePath -> test
 	finally repeatPlan
 	
-	Plan test resumeLastPlan[		
+	Plan test resumeLastPlan[
+		onMsg robotMoveForward:robotMoveForward(TIME) -> javaRun it.unibo.custom.path.register("robotMoveForward:robotMoveForward", TIME);
 		onMsg robotMoveForward:robotMoveForward(TIME) -> javaRun it.unibo.custom.path.register("robotMoveForward:robotMoveForward", TIME);
 		onMsg robotRotateLeft:robotRotateLeft(TIME) -> javaRun it.unibo.custom.path.register("robotRotateLeft:robotRotateLeft", TIME);
 		onMsg robotRotateRight:robotRotateRight(TIME) -> javaRun it.unibo.custom.path.register("robotRotateRight:robotRotateRight", TIME); 
-		onMsg robotMoveBackwards:robotMoveBackwards(TIME) -> javaRun it.unibo.custom.path.register("robotMoveBackwards:robotMoveBackwards", TIME)
+		onMsg robotMoveBackwards:robotMoveBackwards(TIME) -> javaRun it.unibo.custom.path.register("robotMoveBackwards:robotMoveBackwards", TIME);
+		onMsg reversePath:reversePath -> javaRun it.unibo.custom.path.startReverse()
 	]
 	
 }
@@ -59,14 +63,17 @@ QActor rover context ctxRover3 {
 	
 	Plan loop normal[
 	//	javaRun it.unibo.custom.path.testMsg("we");
+		addRule registerMovements;
 		forward movementsregister -m robotMoveForward:robotMoveForward(2000);
 		delay time(500);
 		forward movementsregister -m robotRotateLeft:robotRotateLeft(2000);
 		delay time(500);		
 		forward movementsregister -m robotRotateRight:robotRotateRight(2000);
 		delay time(500);	
-		forward movementsregister -m robotMoveBackwards:robotMoveBackwards(2000)
-		
+		forward movementsregister -m robotMoveBackwards:robotMoveBackwards(2000);
+		delay time(3000);
+		removeRule registerMovements;
+		forward movementsregister -m reversePath: reversePath		
 	]
 	transition stopAfter 60000
 		whenEvent unityAddr->doConnectToUnity,
@@ -87,8 +94,8 @@ QActor rover context ctxRover3 {
 	//MUOVITI IN AVANTI
 	Plan moveForward [
 		println("Received forward!");
-		forward movementsregister -m robotMoveForward:robotMoveForward(TIME);
 		onMsg robotMoveForward:robotMoveForward(TIME) -> addRule timing(TIME);
+		[!? registerMovements] forward movementsregister -m robotMoveForward:robotMoveForward(TIME);
 		[!? timing(TIME)] println(forwardsTime(TIME))
 	]
 	reactive [!? timing(TIME)] onward 20 time(TIME)
@@ -100,8 +107,8 @@ QActor rover context ctxRover3 {
 	//MUOVITI INDIETRO 
 	Plan moveBackwards [
 		println("Received backward!");
-		forward movementsregister -m robotMoveBackwards:robotMoveBackwards(TIME);
 		onMsg robotMoveBackwards:robotMoveBackwards(TIME) -> addRule timing(TIME);
+		[!? registerMovements] forward movementsregister -m robotMoveBackwards:robotMoveBackwards(TIME); 
 		[!? timing(TIME)] println(backwardsTime(TIME))
 	]
 	reactive [!? timing(TIME)] backwards 20 time(TIME)
@@ -111,8 +118,8 @@ QActor rover context ctxRover3 {
 	
 	Plan rotateLeft [
 		println("Received left!");
-		forward movementsregister -m robotRotateLeft:robotRotateLeft(TIME);
 		onMsg robotRotateLeft:robotRotateLeft(TIME) -> addRule timing(TIME);
+		[!? registerMovements] forward movementsregister -m robotRotateLeft:robotRotateLeft(TIME);
 		[!? timing(TIME)] println(leftTime(TIME));
 		[!? timing(TIME)] left 20 time(TIME)
 	]
@@ -122,8 +129,8 @@ QActor rover context ctxRover3 {
 	
 	Plan rotateRight [
 		println("Received right!");
-		forward movementsregister -m robotRotateRight:robotRotateRight(TIME);
 		onMsg robotRotateRight:robotRotateRight(TIME) -> addRule timing(TIME);
+		[!? registerMovements] forward movementsregister -m robotRotateRight:robotRotateRight(TIME);
 		[!? timing(TIME)] println(rightTime(TIME));
 		[!? timing(TIME)] right 20 time(TIME)
 	]

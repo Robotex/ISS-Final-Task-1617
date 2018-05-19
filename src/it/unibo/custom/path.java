@@ -8,6 +8,7 @@ import java.util.Stack;
 import alice.tuprolog.Int;
 
 import java.util.Queue;
+import java.util.Iterator;
 import java.util.LinkedList;
 
 public class path {
@@ -26,19 +27,26 @@ public class path {
 		}
 	}
 	public static void register(QActor myself, String move, String time) {
-		Action action = new Action(move, time);
-		stack.add(action);
-		System.out.println(action.toString());
-		
-		if(stack.size() == 3){
-			stack.stream().forEach(curraction -> {
+		stack.add(new Action(move, time));
+	}
+	
+	public static void startReverse(QActor myself) throws Exception{
+		System.out.println("starting reverse" );
+		Iterator<Action> iterator = stack.iterator();
+		Runnable reverse = () -> { 
+			while(iterator.hasNext()){
+				Action curraction = iterator.next();
+				//execUnity(virtualRobotName, command, moveTime, speed, angle);
+				System.out.println("sending:" + curraction.toString());
 				try {
-					myself.sendMsg(curraction.move, "rover", "dispatch", "0");
-					Thread.sleep(Integer.parseInt(action.time));
+					myself.sendMsg(curraction.move, "rover", "dispatch", curraction.time);
+					Thread.sleep(Integer.parseInt(curraction.time) + 2000);
 				} catch (Exception e) {
+					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
-			});
-		}
+			}	
+		};
+		reverse.run();		
 	}
 }
