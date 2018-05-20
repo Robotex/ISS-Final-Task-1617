@@ -2,10 +2,12 @@ package it.unibo.custom;
 
 
 
+import it.unibo.qactors.QActorUtils;
 import it.unibo.qactors.akka.QActor;
 import java.util.Stack;
 
 import alice.tuprolog.Int;
+import alice.tuprolog.Prolog;
 
 import java.util.Queue;
 import java.util.Iterator;
@@ -25,6 +27,9 @@ public class path {
 		public String toString(){
 			return move + "("+time+")";
 		}
+		public String formatAsMessage(Prolog prologEngine){
+			return QActorUtils.unifyMsgContent(prologEngine, this.move +"(TIME)", this.move + "(" + this.time + ")", null ).toString();			
+		}
 	}
 	public static void register(QActor myself, String move, String time) {
 		stack.add(new Action(move, time));
@@ -36,10 +41,9 @@ public class path {
 		Runnable reverse = () -> { 
 			while(iterator.hasNext()){
 				Action curraction = iterator.next();
-				//execUnity(virtualRobotName, command, moveTime, speed, angle);
 				System.out.println("sending:" + curraction.toString());
-				try {
-					myself.sendMsg(curraction.move, "rover", "dispatch", curraction.time);
+				try {					
+					myself.sendMsg(curraction.move, "rover", "dispatch", curraction.formatAsMessage(myself.getPrologEngine()));
 					Thread.sleep(Integer.parseInt(curraction.time) + 2000);
 				} catch (Exception e) {
 					// TODO Auto-generated catch block

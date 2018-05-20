@@ -38,18 +38,17 @@ QActor movementsregister context ctxRover3 {
 	Plan loop normal[
 	]
 	transition stopAfter 60000
-		whenMsg robotMoveForward -> test,
-		whenMsg robotMoveBackwards -> test,
-		whenMsg robotRotateLeft -> test,
-		whenMsg robotRotateRight -> test,
-		whenMsg reversePath -> test
+		whenMsg robotMoveForward -> register,
+		whenMsg robotMoveBackwards -> register,
+		whenMsg robotRotateLeft -> register,
+		whenMsg robotRotateRight -> register,
+		whenMsg reversePath -> register
 	finally repeatPlan
 	
-	Plan test resumeLastPlan[
+	Plan register resumeLastPlan[
 		onMsg robotMoveForward:robotMoveForward(TIME) -> javaRun it.unibo.custom.path.register("robotMoveForward:robotMoveForward", TIME);
-		onMsg robotMoveForward:robotMoveForward(TIME) -> javaRun it.unibo.custom.path.register("robotMoveForward:robotMoveForward", TIME);
-		onMsg robotRotateLeft:robotRotateLeft(TIME) -> javaRun it.unibo.custom.path.register("robotRotateLeft:robotRotateLeft", TIME);
-		onMsg robotRotateRight:robotRotateRight(TIME) -> javaRun it.unibo.custom.path.register("robotRotateRight:robotRotateRight", TIME); 
+		onMsg robotRotateLeft:robotRotateLeft(TIME) -> javaRun it.unibo.custom.path.register("robotRotateLeft:robotRotateRight", TIME);		// rotateRight e rotateLeft sono volutamente invertiti
+		onMsg robotRotateRight:robotRotateRight(TIME) -> javaRun it.unibo.custom.path.register("robotRotateRight:robotRotateLeft", TIME); 
 		onMsg robotMoveBackwards:robotMoveBackwards(TIME) -> javaRun it.unibo.custom.path.register("robotMoveBackwards:robotMoveBackwards", TIME);
 		onMsg reversePath:reversePath -> javaRun it.unibo.custom.path.startReverse()
 	]
@@ -62,7 +61,6 @@ QActor rover context ctxRover3 {
 	}
 	
 	Plan loop normal[
-	//	javaRun it.unibo.custom.path.testMsg("we");
 		addRule registerMovements;
 		forward movementsregister -m robotMoveForward:robotMoveForward(2000);
 		delay time(500);
@@ -116,7 +114,7 @@ QActor rover context ctxRover3 {
 		whenTout 100000-> handleTout
 		whenEvent robotHold -> endOfMovement
 	
-	Plan rotateLeft [
+	Plan rotateLeft [ 
 		println("Received left!");
 		onMsg robotRotateLeft:robotRotateLeft(TIME) -> addRule timing(TIME);
 		[!? registerMovements] forward movementsregister -m robotRotateLeft:robotRotateLeft(TIME);
