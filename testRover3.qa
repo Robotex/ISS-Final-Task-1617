@@ -13,8 +13,8 @@ Dispatch robotMoveLeft 		: robotMoveLeft(TIME)
 Dispatch robotRotateLeft	: robotRotateLeft(TIME)
 Dispatch robotMoveRight 	: robotMoveRight(TIME)
 Dispatch robotRotateRight	: robotRotateRight(TIME)
-Dispatch robotMoveForward	: robotMoveForward(TIME)
-Dispatch robotMoveBackwards	: robotMoveBackwards(TIME)
+Dispatch robotMoveForward	: robotMoveForward(TIME, TIMEOUT)
+Dispatch robotMoveBackwards	: robotMoveBackwards(TIME, TIMEOUT)
 Dispatch reversePath : reversePath
 
 Event unityAddr				: unityAddr(ADDR)
@@ -42,14 +42,16 @@ QActor movementsregister context ctxRover3 {
 		whenMsg robotMoveBackwards -> register,
 		whenMsg robotRotateLeft -> register,
 		whenMsg robotRotateRight -> register,
-		whenMsg reversePath -> register
+		whenMsg reversePath -> register,
+		whenEvent robotHold -> register
 	finally repeatPlan
 	
 	Plan register resumeLastPlan[
-		onMsg robotMoveForward:robotMoveForward(TIME) -> javaRun it.unibo.custom.path.register("robotMoveForward:robotMoveForward", TIME);
-		onMsg robotRotateLeft:robotRotateLeft(TIME) -> javaRun it.unibo.custom.path.register("robotRotateLeft:robotRotateRight", TIME);		// rotateRight e rotateLeft sono volutamente invertiti
-		onMsg robotRotateRight:robotRotateRight(TIME) -> javaRun it.unibo.custom.path.register("robotRotateRight:robotRotateLeft", TIME); 
-		onMsg robotMoveBackwards:robotMoveBackwards(TIME) -> javaRun it.unibo.custom.path.register("robotMoveBackwards:robotMoveBackwards", TIME);
+		onMsg robotMoveForward:robotMoveForward(TIME, TIMEOUT) -> javaRun it.unibo.custom.path.register("robotMoveForward", TIME, TIMEOUT);
+		onMsg robotRotateLeft:robotRotateLeft(TIME) -> javaRun it.unibo.custom.path.register("robotRotateRight", TIME);		// rotateRight e rotateLeft sono volutamente invertiti
+		onMsg robotRotateRight:robotRotateRight(TIME) -> javaRun it.unibo.custom.path.register("robotRotateLeft", TIME); 
+		onMsg robotMoveBackwards:robotMoveBackwards(TIME, TIMEOUT) -> javaRun it.unibo.custom.path.register("robotMoveBackwards", TIME, TIMEOUT);
+		onEvent robotHold:robotHold(TIME) -> javaRun it.unibo.custom.path.register("robotHold", TIME);
 		onMsg reversePath:reversePath -> javaRun it.unibo.custom.path.startReverse()
 	]
 	
@@ -62,13 +64,13 @@ QActor rover context ctxRover3 {
 	
 	Plan loop normal[
 		addRule registerMovements;
-		forward movementsregister -m robotMoveForward:robotMoveForward(2000);
+		forward movementsregister -m robotMoveForward:robotMoveForward(2000, 100000);
 		delay time(500);
 		forward movementsregister -m robotRotateLeft:robotRotateLeft(2000);
 		delay time(500);		
 		forward movementsregister -m robotRotateRight:robotRotateRight(2000);
 		delay time(500);	
-		forward movementsregister -m robotMoveBackwards:robotMoveBackwards(2000);
+		forward movementsregister -m robotMoveBackwards:robotMoveBackwards(2000, 100000);
 		delay time(3000);
 		removeRule registerMovements;
 		forward movementsregister -m reversePath: reversePath		
@@ -93,7 +95,7 @@ QActor rover context ctxRover3 {
 	Plan moveForward [
 		println("Received forward!");
 		onMsg robotMoveForward:robotMoveForward(TIME) -> addRule timing(TIME);
-		[!? registerMovements] forward movementsregister -m robotMoveForward:robotMoveForward(TIME);
+		[!? registerMovements] forward movementsregister -m robotMoveForward:robotMoveForward(TIME, 100000);
 		[!? timing(TIME)] println(forwardsTime(TIME))
 	]
 	reactive [!? timing(TIME)] onward 20 time(TIME)
@@ -106,7 +108,7 @@ QActor rover context ctxRover3 {
 	Plan moveBackwards [
 		println("Received backward!");
 		onMsg robotMoveBackwards:robotMoveBackwards(TIME) -> addRule timing(TIME);
-		[!? registerMovements] forward movementsregister -m robotMoveBackwards:robotMoveBackwards(TIME); 
+		[!? registerMovements] forward movementsregister -m robotMoveBackwards:robotMoveBackwards(TIME, 100000); 
 		[!? timing(TIME)] println(backwardsTime(TIME))
 	]
 	reactive [!? timing(TIME)] backwards 20 time(TIME)
