@@ -9,11 +9,9 @@
 
 System testRover3
  
-Dispatch robotMoveLeft 		: robotMoveLeft(TIME)
-Dispatch robotRotateLeft	: robotRotateLeft(TIME)
-Dispatch robotMoveRight 	: robotMoveRight(TIME)
-Dispatch robotRotateRight	: robotRotateRight(TIME)
 Dispatch robotMoveForward	: robotMoveForward(TIME, TIMEOUT)
+Dispatch robotRotateLeft	: robotRotateLeft(TIME)
+Dispatch robotRotateRight	: robotRotateRight(TIME)
 Dispatch robotMoveBackwards	: robotMoveBackwards(TIME, TIMEOUT)
 Dispatch reversePath : reversePath
 
@@ -39,8 +37,8 @@ QActor movementsregister context ctxRover3 {
 	]
 	transition stopAfter 60000
 		whenMsg robotMoveForward -> register,
-		whenMsg robotMoveBackwards -> register,
 		whenMsg robotRotateLeft -> register,
+		whenMsg robotMoveBackwards -> register,
 		whenMsg robotRotateRight -> register,
 		whenMsg reversePath -> register,
 		whenEvent robotHold -> register
@@ -62,18 +60,7 @@ QActor rover context ctxRover3 {
 		forTime(T).
 	}
 	
-	Plan loop normal[
-		addRule registerMovements;
-		forward movementsregister -m robotMoveForward:robotMoveForward(2000, 100000);
-		delay time(500);
-		forward movementsregister -m robotRotateLeft:robotRotateLeft(2000);
-		delay time(500);		
-		forward movementsregister -m robotRotateRight:robotRotateRight(2000);
-		delay time(500);	
-		forward movementsregister -m robotMoveBackwards:robotMoveBackwards(2000, 100000);
-		delay time(3000);
-		removeRule registerMovements;
-		forward movementsregister -m reversePath: reversePath		
+	Plan loop normal[	
 	]
 	transition stopAfter 60000
 		whenEvent unityAddr->doConnectToUnity,
@@ -90,12 +77,11 @@ QActor rover context ctxRover3 {
 		actorOp createSimulatedActor   
 	]
 
-
 	//MUOVITI IN AVANTI
 	Plan moveForward [
 		println("Received forward!");
-		onMsg robotMoveForward:robotMoveForward(TIME) -> addRule timing(TIME);
-		[!? registerMovements] forward movementsregister -m robotMoveForward:robotMoveForward(TIME, 100000);
+		onMsg robotMoveForward:robotMoveForward(TIME, TIMEOUT) -> addRule timing(TIME);
+		[not !? reversing] forward movementsregister -m robotMoveForward:robotMoveForward(TIME, 100000);
 		[!? timing(TIME)] println(forwardsTime(TIME))
 	]
 	reactive [!? timing(TIME)] onward 20 time(TIME)
@@ -107,8 +93,8 @@ QActor rover context ctxRover3 {
 	//MUOVITI INDIETRO 
 	Plan moveBackwards [
 		println("Received backward!");
-		onMsg robotMoveBackwards:robotMoveBackwards(TIME) -> addRule timing(TIME);
-		[!? registerMovements] forward movementsregister -m robotMoveBackwards:robotMoveBackwards(TIME, 100000); 
+		onMsg robotMoveBackwards:robotMoveBackwards(TIME, TIMEOUT) -> addRule timing(TIME);
+		[not !? reversing] forward movementsregister -m robotMoveBackwards:robotMoveBackwards(TIME, 100000); 
 		[!? timing(TIME)] println(backwardsTime(TIME))
 	]
 	reactive [!? timing(TIME)] backwards 20 time(TIME)
@@ -119,7 +105,7 @@ QActor rover context ctxRover3 {
 	Plan rotateLeft [ 
 		println("Received left!");
 		onMsg robotRotateLeft:robotRotateLeft(TIME) -> addRule timing(TIME);
-		[!? registerMovements] forward movementsregister -m robotRotateLeft:robotRotateLeft(TIME);
+		[not !? reversing] forward movementsregister -m robotRotateLeft:robotRotateLeft(TIME);
 		[!? timing(TIME)] println(leftTime(TIME));
 		[!? timing(TIME)] left 20 time(TIME)
 	]
@@ -130,7 +116,7 @@ QActor rover context ctxRover3 {
 	Plan rotateRight [
 		println("Received right!");
 		onMsg robotRotateRight:robotRotateRight(TIME) -> addRule timing(TIME);
-		[!? registerMovements] forward movementsregister -m robotRotateRight:robotRotateRight(TIME);
+		[not !? reversing] forward movementsregister -m robotRotateRight:robotRotateRight(TIME);
 		[!? timing(TIME)] println(rightTime(TIME));
 		[!? timing(TIME)] right 20 time(TIME)
 	]
@@ -204,7 +190,9 @@ QActor highlevel context ctxRover3{
 		onEvent inputcmd:usercmd(executeInput(connectToUnity(IP))) ->{
 			addRule unityOn
 		};
-		
+		onEvent inputcmd:usercmd(executeInput(reverse())) ->{
+			addRule reversing
+		};
 		[?? startingDistance(S)] onEvent inputcmd:usercmd(startingDistance(S)) -> addRule startingDistance(S)
 		else onEvent inputcmd:usercmd(startingDistance(S)) -> addRule startingDistance(S)
 	]
