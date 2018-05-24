@@ -1,19 +1,10 @@
-/*
- * SONO PIAGA
- * STO LAVORANDO SU QUESTO FILE ATTUALMENTE PERCHE' STO FACENDO MOLTI ESPERIMENTI SUI RULES
- * LO TERRÃ’ IN CONSIDERAZIONE PER FUTURI AGGIORNAMENTI MA QUANDO SAPRÃ’ BENE COME FARE 
- * TORNO A LAVORARE SUL FILE DI PROGETTO PRINCIPALE
- */
- 
-
-
 System testRover3
  
-Dispatch robotMoveForward	: robotMoveForward(TIME, TIMEOUT)
 Dispatch robotRotateLeft	: robotRotateLeft(TIME)
 Dispatch robotRotateRight	: robotRotateRight(TIME)
+Dispatch robotMoveForward	: robotMoveForward(TIME, TIMEOUT)
 Dispatch robotMoveBackwards	: robotMoveBackwards(TIME, TIMEOUT)
-Dispatch reversePath : reversePath
+Dispatch reversePath		: reversePath
 
 Event unityAddr				: unityAddr(ADDR)
 Event robotHold 			: robotHold(TIME)
@@ -25,17 +16,14 @@ Event obstacle 				: obstacle(X)
 Event cmd 					: cmd(X)
 Event sonarDetect    		: sonarDetect(X)
 Event sonar          		: sonar(SONAR, TARGET, DISTANCE)
-   
- 
 
 Context  ctxRover3  ip [ host="localhost"  port=8070 ] -httpserver    
 EventHandler alarmh for alarm -print {memoCurrentEvent -lastonly for highlevel};
 
-
 QActor movementsregister context ctxRover3 {
 	Plan loop normal[
 	]
-	transition stopAfter 60000
+	transition stopAfter 600000
 		whenMsg robotMoveForward -> register,
 		whenMsg robotRotateLeft -> register,
 		whenMsg robotMoveBackwards -> register,
@@ -51,16 +39,16 @@ QActor movementsregister context ctxRover3 {
 		onMsg robotMoveBackwards:robotMoveBackwards(TIME, TIMEOUT) -> javaRun it.unibo.custom.path.register("robotMoveBackwards", TIME, TIMEOUT);
 		onEvent robotHold:robotHold(TIME) -> javaRun it.unibo.custom.path.register("robotHold", TIME);
 		onMsg reversePath:reversePath -> javaRun it.unibo.custom.path.startReverse()
-	]
-	
+	]	
 }
+
 QActor rover context ctxRover3 {
 	//INIZIA ED ASPETTA EVENTI O MESSAGGI
 	Rules{
 		forTime(T).
 	}
 	
-	Plan loop normal[	
+	Plan loop normal[
 	]
 	transition stopAfter 60000
 		whenEvent unityAddr->doConnectToUnity,
@@ -71,17 +59,18 @@ QActor rover context ctxRover3 {
 		whenMsg robotRotateRight -> rotateRight
 	finally repeatPlan
 	
+	
 	Plan doConnectToUnity resumeLastPlan[
 		println("connectingToUnity");
 		onEvent unityAddr:unityAddr(X)-> actorOp workWithUnity(X);
-		actorOp createSimulatedActor   
+		actorOp createSimulatedActor 
 	]
+
 
 	//MUOVITI IN AVANTI
 	Plan moveForward [
-		println("Received forward!");
 		onMsg robotMoveForward:robotMoveForward(TIME, TIMEOUT) -> addRule timing(TIME);
-		[not !? reversing] forward movementsregister -m robotMoveForward:robotMoveForward(TIME, 100000);
+		[!? shouldRegister] forward movementsregister -m robotMoveForward:robotMoveForward(TIME, 100000);
 		[!? timing(TIME)] println(forwardsTime(TIME))
 	]
 	reactive [!? timing(TIME)] onward 20 time(TIME)
@@ -90,11 +79,10 @@ QActor rover context ctxRover3 {
 		whenEvent robotHold -> endOfMovement
 	
 	
-	//MUOVITI INDIETRO 
+	//MUOVITI INDIETRO
 	Plan moveBackwards [
-		println("Received backward!");
 		onMsg robotMoveBackwards:robotMoveBackwards(TIME, TIMEOUT) -> addRule timing(TIME);
-		[not !? reversing] forward movementsregister -m robotMoveBackwards:robotMoveBackwards(TIME, 100000); 
+		[not !? shouldRegister] forward movementsregister -m robotMoveBackwards:robotMoveBackwards(TIME, 100000);
 		[!? timing(TIME)] println(backwardsTime(TIME))
 	]
 	reactive [!? timing(TIME)] backwards 20 time(TIME)
@@ -102,10 +90,9 @@ QActor rover context ctxRover3 {
 		whenTout 100000-> handleTout
 		whenEvent robotHold -> endOfMovement
 	
-	Plan rotateLeft [ 
-		println("Received left!");
+	Plan rotateLeft [
 		onMsg robotRotateLeft:robotRotateLeft(TIME) -> addRule timing(TIME);
-		[not !? reversing] forward movementsregister -m robotRotateLeft:robotRotateLeft(TIME);
+		[not !? shouldRegister] forward movementsregister -m robotRotateLeft:robotRotateLeft(TIME);
 		[!? timing(TIME)] println(leftTime(TIME));
 		[!? timing(TIME)] left 20 time(TIME)
 	]
@@ -114,9 +101,8 @@ QActor rover context ctxRover3 {
 		whenEvent robotHold -> endOfMovement
 	
 	Plan rotateRight [
-		println("Received right!");
 		onMsg robotRotateRight:robotRotateRight(TIME) -> addRule timing(TIME);
-		[not !? reversing] forward movementsregister -m robotRotateRight:robotRotateRight(TIME);
+		[not !? shouldRegister] forward movementsregister -m robotRotateRight:robotRotateRight(TIME);
 		[!? timing(TIME)] println(rightTime(TIME));
 		[!? timing(TIME)] right 20 time(TIME)
 	]
@@ -176,7 +162,8 @@ QActor highlevel context ctxRover3{
 	Plan init normal[
 		println("HL: Expecting...");
 		println('HL: A) connectToUnity(IP) - connects to unity on ip remote/local pc');
-		println('HL: B) startingDistance([Integer]) - choose starting distace from sonar1')
+		println('HL: B) startingDistance([Integer]) - choose starting distace from sonar1');
+		addRule shouldRegister
 	]
 	transition stopAfter 100000
 		whenEvent alarm-> handle_alarm,
@@ -190,9 +177,7 @@ QActor highlevel context ctxRover3{
 		onEvent inputcmd:usercmd(executeInput(connectToUnity(IP))) ->{
 			addRule unityOn
 		};
-		onEvent inputcmd:usercmd(executeInput(reverse())) ->{
-			addRule reversing
-		};
+		
 		[?? startingDistance(S)] onEvent inputcmd:usercmd(startingDistance(S)) -> addRule startingDistance(S)
 		else onEvent inputcmd:usercmd(startingDistance(S)) -> addRule startingDistance(S)
 	]
@@ -204,34 +189,40 @@ QActor highlevel context ctxRover3{
 	/*
 	 *  STAGE 0
 	 * 
-	 * 	Il rover, appena connesso, Ã¨ sulla linea di partenza, orientato verso il sonar1 e vicino ad esso.
+	 * 	Il rover, appena connesso, è sulla linea di partenza, orientato verso il sonar1 e vicino ad esso.
 	 * 	Il rover aspetta un solo comando se non ancora inserito:
 	 *  startingDistance([Integer])
-	 *  Il compito dello stage0 Ã¨ di portare il rover al punto di partenza
+	 *  Il compito dello stage0 è di portare il rover al punto di partenza
 	 *  Una volta arrivati al punto di partenza, il rover si gira e si cambia stage
 	 */
 	Plan onSonarLine [
 		//DA IMPLEMENTARE
 		
+		onEvent inputcmd:usercmd(executeInput(reverse(test))) ->{			
+			removeRule shouldRegister;
+			println("should reverse");
+			forward movementsregister -m reversePath:reversePath
+		};
 		[not !? stepWorkDone]{
 			[!? difference(DFF)] {
 				[!? difference(DFF)] demo eval(lt,DFF,0);
 				[!? goalResult(eval(lt,DFF,0))] {
 					[not !? getClose]{
-					 	forward rover -m robotMoveForward:robotMoveForward(2000);
+					 	forward rover -m robotMoveForward:robotMoveForward(2000, 100000);
 					 	println("Getting close");
 						addRule getClose 
 					 }
 				}
 				else {
 					[not !? getFar]{
-						forward rover -m robotMoveBackwards:robotMoveBackwards(2000);
+						forward rover -m robotMoveBackwards:robotMoveBackwards(2000, 100000);
 						println("Getting far");
 						addRule getFar
 					} 
 				}
 			}
 		}
+		
 	]
 	transition stopAfter 100000
 		whenEvent alarm-> handle_alarm,
@@ -272,6 +263,7 @@ QActor highlevel context ctxRover3{
 				println("reachedPoint");
 				forward rover -m robotRotateRight:robotRotateRight(1000);
 				addRule started; //QUESTA REGOLA IMPEDISCE LA MODIFICA DELLA STARTING DISTANCE DURANTE L'ESERCIZIO
+				addRule shouldRegister;
 				addRule run
 			}
 			
@@ -339,16 +331,16 @@ QActor highlevel context ctxRover3{
 	/*
 	 *  STAGE 1
 	 *  
-	 *  PREMESSA:" Il rover si Ã¨ portato al punto di partenza, orientato verso il waypoint "
+	 *  PREMESSA:" Il rover si è portato al punto di partenza, orientato verso il waypoint "
 	 *  Il rover si aspetta che l'utente prema il tasto start
-	 *  Una volta premuto il tasto start, il rover puÃ² incontrare degli ostacoli
+	 *  Una volta premuto il tasto start, il rover può incontrare degli ostacoli
 	 *  Lo stage1 finisce quando il rover viene individuato dal sonar2
 	 */
 	
 	Plan stage1[
 		[?? run]{ 
 			println("Going forward with stage1");
-			forward rover -m robotMoveForward:robotMoveForward(2000)
+			forward rover -m robotMoveForward:robotMoveForward(2000, 100000)
 		}
 	]
 	transition stopAfter 25000
@@ -394,14 +386,14 @@ QActor highlevel context ctxRover3{
 		whenEvent robotDone -> onSonarLine
 	
 	/*
-	 * Quando sonarDetect scatta significa che il rover ha davanti qualcosa, bisogna capire cos'Ã¨
+	 * Quando sonarDetect scatta significa che il rover ha davanti qualcosa, bisogna capire cos'è
 	 * Sappiamo che i fixed object sono oggetti fissi che non si spostano nel tempo
 	 * Invece l'oggetto mobile segue un percorso di avanti-indietro con un periodo di 5 secondi
-	 * Questo significa che ogni 2.5 secondi l'oggetto dinamico passa dal centro ad un'estremitÃ  del suo percorso
+	 * Questo significa che ogni 2.5 secondi l'oggetto dinamico passa dal centro ad un'estremità del suo percorso
 	 * e viceversa.
 	 * 
 	 * Chiedo al rover di aspettare 2 secondi, se scatta di nuovo un sonarDetect dopo 2 secondi sappiamo quindi che
-	 * davanti al rover c'Ã¨ un fixed altrimenti dynamic
+	 * davanti al rover c'è un fixed altrimenti dynamic
 	 * 
 	 */
 	Plan stage1_obstacleAvoidingManagement resumeLastPlan [
@@ -422,10 +414,10 @@ QActor highlevel context ctxRover3{
 		whenEvent sonarDetect->stage1_managingFixedObject_loop_begin
 	
 	/*
-	 * Se si arriva al plan seguente allora si Ã¨ di fronte ad una barriera fissa
+	 * Se si arriva al plan seguente allora si è di fronte ad una barriera fissa
 	 * Si cerca quindi la strada per evitarla.
 	 * Bisogna considerare che non si conosce quale barriera fissa si ha davanti
-	 * La strategia Ã¨ quella di muovere il rover a sinistra con la seguente strategia:
+	 * La strategia è quella di muovere il rover a sinistra con la seguente strategia:
 	 * loop:-backwards left forward right evaluate
 	 * Nel caso in cui, durante il loop ci si ritrova a segnalare sonarDetect significa che siamo in presenza
 	 * di un wall laterale e bisogna correggere il tiro e andare a destra invece che a sinistra
@@ -433,7 +425,7 @@ QActor highlevel context ctxRover3{
 	 */	
 	Plan stage1_managingFixedObject_loop_begin[
 		onEvent sonarDetect:sonarDetect(NAME) ->println(detected(NAME));
-		forward rover -m robotMoveBackwards:robotMoveBackwards(1000)
+		forward rover -m robotMoveBackwards:robotMoveBackwards(1000, 100000)
 	]
 	transition stopAfter 10000
 		whenEvent alarm->handle_alarm,
@@ -450,7 +442,7 @@ QActor highlevel context ctxRover3{
 	
 	Plan stage1_managingFixedObject_loop_avoiding [
 		println("Avoiding fixed obstacle");
-		forward rover -m robotMoveForward:robotMoveForward(2000)
+		forward rover -m robotMoveForward:robotMoveForward(2000, 100000)
 	]
 	transition
 		stopAfter 10000 //DURANTA TRASLAZIONE LATERALE 
@@ -473,7 +465,7 @@ QActor highlevel context ctxRover3{
 		whenEvent robotDone -> stage1_managingFixedObject_loop_edgeDetected_backward //DURATA RETRO-TRASLAZIONE LATERALE POST EDGE DETECTION
 	
 	Plan stage1_managingFixedObject_loop_edgeDetected_backward [
-		forward rover -m robotMoveBackwards:robotMoveBackwards(1000)
+		forward rover -m robotMoveBackwards:robotMoveBackwards(1000, 100000)
 	]
 	transition
 		stopAfter 10000
@@ -514,13 +506,5 @@ QActor highlevel context ctxRover3{
 	Plan endOfWork [
 		println("Well done, end of work")
 	]
-	
-	
-		
-	
-	
-	
+
 }
- 
-
-

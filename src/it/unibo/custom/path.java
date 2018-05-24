@@ -24,7 +24,7 @@ public class path {
 		private long timeStamp;
 		private long actualDuration;
 		public Action(String move, String time){
-			this.move = move.split(":")[1];
+			this.move = move;
 			this.time = time;
 			this.timeStamp = System.currentTimeMillis();			
 		}
@@ -47,19 +47,17 @@ public class path {
 	
 	
 	public static void register(QActor myself, String move, String time) {
-		System.out.println("test");
+		
 		Action action = new Action(move, time);
 		
 		if(action.move == "robotHold" && stack.size() > 0){
 			Action lastAction = stack.get(stack.size() - 1);
 			lastAction.actualDuration = System.currentTimeMillis() - lastAction.timeStamp; 
 		}
-		stack.add(action);
+		stack.add(action);		
 	}
 	public static void register(QActor myself, String move, String time, String timeout) {
-		System.out.println("test2");
-		Action action = new Action(move, time, timeout);
-		
+		Action action = new Action(move, time, timeout);		
 		if(action.move == "robotHold" && stack.size() > 0){
 			Action lastAction = stack.get(stack.size() - 1);
 			lastAction.actualDuration = System.currentTimeMillis() - lastAction.timeStamp; 
