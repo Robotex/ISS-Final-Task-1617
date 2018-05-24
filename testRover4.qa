@@ -15,7 +15,7 @@ Dispatch moveRover : cmd( CMD )
 Context ctxRover4 ip [ host="localhost" port=8090 ] -httpserver
 
 EventHandler evh for  sonar { 
-	memoCurrentEvent -lastonly for sonarhandler
+	memoCurrentEvent for sonarhandler
 } ;
 
 QActor sonarhandler context ctxRover4 {
@@ -64,6 +64,15 @@ QActor sonarhandler context ctxRover4 {
 			eval( lt, DISTANCE, UPPERTHREASHOLD ).
 			//actorPrintln( isatdistance(SONARID) ).
 			
+		isatdistance2(SONARID) :-
+			retract( msg(M,EV,EMITTER,none,sonar(SONARID,TARGET,DISTANCE),N) ),
+			startingDistance(GOALDISTANCE),
+			eval( minus, GOALDISTANCE, 5, LOWERTHREASHOLD ),
+			eval( plus, GOALDISTANCE, 5, UPPERTHREASHOLD ),
+			eval( gt, DISTANCE, LOWERTHREASHOLD ),
+			eval( lt, DISTANCE, UPPERTHREASHOLD ).
+			//actorPrintln( isatdistance(SONARID) ).
+			
 		isfinal :-
 			changeDistance,
 			finalDistance.
@@ -86,13 +95,8 @@ QActor sonarhandler context ctxRover4 {
 		
 	Plan setStartDistance resumeLastPlan
 		actions [
-			println("setStartDistance");
-			onEvent startDistance : startDistance(X) -> addRule startingDistance(X);
-			[ not !? isatdistance(sonar1) ] {
-				[ !? isfarther(sonar1) ] emit usercmd : usercmd( robotgui(w(low)) )
-				else emit usercmd : usercmd( robotgui(s(low)) )
-			} ;
-			addRule changeDistance
+			removeRule startingDistance(X);
+			onEvent startDistance : startDistance(X) -> addRule startingDistance(X)
 		]
    	
    	Plan processSonarData resumeLastPlan
@@ -100,7 +104,7 @@ QActor sonarhandler context ctxRover4 {
 	   		demo updateSonarData
 	   	]
    		switchTo checkDistance
-    	//finally [ ?? sonardata(DATA) ] repeatPlan  
+    	finally [ ?? sonardata(DATA) ] repeatPlan  
     
     Plan checkDistance resumeLastPlan
     actions[
@@ -108,31 +112,60 @@ QActor sonarhandler context ctxRover4 {
    		//[ !? isnear(sonar2,D)  ] emit sonarObstacle : sonarObstacle(sonar2,D) ;
    		//[ !? isfarther(sonar1) ] forward rover -m moveRover : cmd(move("forward",40,0)) ;
    		//[ !? isnearer(sonar1)  ] forward rover -m moveRover : cmd(move("backward",40,0)) ;
-   		[ !? isatdistance(sonar1) ] {
-   			[ !? changeDistance ] {
-   				stop 40 time(0) ;
-   				removeRule changeDistance
-   			}
-   		};
-   		[ !? isatdistance(sonar2) ] {
-   			[ !? changeDistance ] {
-   				stop 40 time(0) ;
-   				removeRule changeDistance
-   			}
-   		};
    		
-		[ not !? finalDistance ] onEvent sonar : sonar(sonar2,TARGET,DISTANCE) -> {
-			addRule finalDistance;
+   		[ !? adjustingDistance ] {
+   			println("Checking for reach...");
+   			[ !? isatdistance(sonar1) ] {
+   				println("Distace on line A reached.");
+   				stop 40 time(0) ;
+   				removeRule adjustingDistance
+   			};
+   			[ !? isatdistance(sonar2) ] {
+   				println("Distace on line B reached.");
+   				stop 40 time(0) ;
+   				println ("Mission completed!") ;
+   				removeRule adjustingDistance
+   			}
+   		} else {
+   			[ !? sonardata( sonar(sonar1,TARGET,DISTANCE) ) ] {
+   				[ not !? startingDistance(X) ] { [ !? sonardata( sonar(sonar1,TARGET,DISTANCE) ) ] addRule startingDistance(DISTANCE) };
+   				[ not !? isatdistance(sonar1) ] {
+	   				println("Request distance adjusting on sonar1 line");
+					[ !? isfarther(sonar1) ] onward 40 time(0)
+						else backwards 40 time(0);
+					addRule adjustingDistance
+	   			}
+	   		};
+	   		[ !? sonardata( sonar(sonar2,TARGET,DISTANCE) ) ] {
+	   			[ not !? isatdistance(sonar2) ] {
+	   				println("Request distance adjusting on sonar2 line");
+	   				stop 40 time(0) ;
+					left 40 time(750) ;
+					[ !? isfarther(sonar2) ] onward 40 time(0)
+						else backwards 40 time(0);
+					addRule adjustingDistance
+		   		}
+	   		}
+	   	}
+   	]
+   /*	switchTo [ !? needAdjustDistance ] adjustDistance
+   	
+   	Plan adjustDistance resumeLastPlan
+   		actions [
+   			println("Adjusting distance...");
+   			removeRule needAdjustDistance ;
+   			[ not !? isatdistance(sonar1) ] {
+				[ !? isfarther(sonar1) ] onward 40 time(0)
+				else backwards 40 time(0) ;
+				addRule adjustingDistance
+			};
 			[ not !? isatdistance(sonar2) ] {
-				addRule changeDistance;
-				println("setFinalDistance");
 				left 40 time(750) ;
 				[ !? isfarther(sonar2) ] onward 40 time(0)
-				else backwards 40 time(0)
+				else backwards 40 time(0) ;
+				addRule adjustingDistance
 			}
-		}
-   		   			
-   	]
+   		]*/
    	
    	Plan handleTout resumeLastPlan
    		actions []
