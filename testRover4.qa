@@ -130,14 +130,14 @@ QActor sonarhandler context ctxRover4 {
    			[ !? isatdistance(sonar1) ] { // Siamo alla distanza corretta? 
    				//println("On right distance");
    				[ ?? adjustingDistance ] { // Se il rover si sta muovendo gestito dal sonar, fermiamolo 
-   					stop 40 time(0);
+   					forward rover -m moveRover : cmd(move("stop",40,0));
    					println("Distance from sonar1 reached.")
    				}
    			} else {
    				//println("Not on right distance");
    				[ not !? adjustingDistance ] { // Il rover parte non gestito dal sonar, prendiamone possesso
-					[ !? isfarther(sonar1) ] onward 40 time(0)
-						else backwards 40 time(0);
+					[ !? isfarther(sonar1) ] forward rover -m moveRover : cmd(move("forward",20,0))
+						else forward rover -m moveRover : cmd(move("backward",20,0));
 					addRule adjustingDistance;
 					println("Started distance adjustement...")
    				}
@@ -148,24 +148,24 @@ QActor sonarhandler context ctxRover4 {
 	   			//println("On sonar2 line");
 	   			[ !? isatdistance(sonar2) ] {
 	   				[ ?? adjustingDistance ] {
-	   					stop 40 time(0);
+	   					forward rover -m moveRover : cmd(move("stop",40,0));
 	   					println("Distance from sonar2 reached.")
 	   				}
 	   			} else {
 	   				[ not !? adjustingDistance ] {
-	   					stop 100 time (0); // FERMATI!!!
-	   					left 40 time (1000);
-						[ !? isfarther(sonar2) ] onward 40 time(0)
-							else backwards 40 time(0);
+	   					forward rover -m moveRover : cmd(move("stop",100,0)); // FERMATI!!!
+	   					forward rover -m moveRover : cmd(move("left",40,1000));
+						[ !? isfarther(sonar2) ] forward rover -m moveRover : cmd(move("forward",20,0))
+							else forward rover -m moveRover : cmd(move("backward",20,0));
 						addRule adjustingDistance;
 						println("Started distance adjustement...")
 	   				}
 	   			}
 	   		} else {
 	   			[ ?? adjustingDistance ] { // Il sonar ha il controllo del rover ma non lo rileva, siamo finiti fuori dal suo campo
-	   				stop 100 time (0);
-	   				right 40 time (1000);
-	   				backwards 1 time (0);
+	   				forward rover -m moveRover : cmd(move("stop",100,0));
+	   				forward rover -m moveRover : cmd(move("right",40,1000));
+	   				forward rover -m moveRover : cmd(move("backward",1,0));
 	   				println("Too fast too furious!")
 	   			}
 	   		}
@@ -193,7 +193,7 @@ QActor rover context ctxRover4 {
 			whenTime 60000 -> handleTout,
 			whenEvent unityAddr -> connectToUnity,
 			whenMsg moveRover -> execMove, 
-			whenEvent sonarDetect -> handleSonar,
+			whenEvent sonarDetect -> stage1_obstacleAvoidingManagement,
 			whenEvent alarm -> handleAlarm
 		finally repeatPlan
 		
@@ -213,8 +213,8 @@ QActor rover context ctxRover4 {
 	Plan execMove resumeLastPlan
 		actions [
 			printCurrentMessage;
-			onMsg moveRover : cmd(move("forward",Y,Z)) -> onward 40 time (0);
-			onMsg moveRover : cmd(move("backward",Y,Z)) -> backwards 40 time (0);
+			onMsg moveRover : cmd(move("forward",Y,Z)) -> onward 20 time (0);
+			onMsg moveRover : cmd(move("backward",Y,Z)) -> backwards 20 time (0);
 			onMsg moveRover : cmd(move("stop",Y,Z)) -> stop 40 time (0);
 			onMsg moveRover : cmd(move("left",Y,Z)) -> left 40 time (1000);
 			onMsg moveRover : cmd(move("right",Y,Z)) -> right 40 time (1000);
@@ -222,10 +222,10 @@ QActor rover context ctxRover4 {
 			onMsg moveRover : cmd(start) -> {
 				addRule started;
 				addRule run;
-				right 40 time (750)
+				selfMsg moveRover : cmd(move("right",40,750));
+				selfMsg moveRover : cmd(move("forward",40,0))
 			}
 		]
-		switchTo [!? started] stage1
 		
 		/*
 	 *  STAGE 1
@@ -253,6 +253,12 @@ QActor rover context ctxRover4 {
 		addRule run
 	]
 	
+	Plan stage1_onward resumeLastPlan
+		actions [
+			onward 20 time (0)
+		]
+		switchTo handleCommands
+	
 	/*
 	 * Quando sonarDetect scatta significa che il rover ha davanti qualcosa, bisogna capire cos'è
 	 * Sappiamo che i fixed object sono oggetti fissi che non si spostano nel tempo
@@ -275,7 +281,7 @@ QActor rover context ctxRover4 {
 		println("Evaluating: done") 
 	]
 	transition
-		whenTime 500 -> stage1
+		whenTime 500 -> stage1_onward
 		whenEvent alarm->handleAlarm,
 		whenEvent sonarDetect->stage1_managingFixedObject_loop_begin
 	
