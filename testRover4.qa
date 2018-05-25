@@ -105,7 +105,7 @@ QActor sonarhandler context ctxRover4 {
 		actions [
 			println("setStartDistance");
 			removeRule startingDistance(X);
-			onEvent startDistance : startDistance(X) -> demo updateStartingDistance(X)
+			onEvent startDistance : startDistance(X) -> addRule startingDistance(X)
 		]
    	
    	Plan processSonarData resumeLastPlan
@@ -121,18 +121,21 @@ QActor sonarhandler context ctxRover4 {
    		//[ !? isfarther(sonar1) ] forward rover -m moveRover : cmd(move("forward",40,0)) ;
    		//[ !? isnearer(sonar1)  ] forward rover -m moveRover : cmd(move("backward",40,0)) ;
    		
+   		// Se manca startingDistance ovvero al primo avvio, impostalo al valore attuale rilevato
    		[ not !? startingDistance(X) ] onEvent sonar : sonar(sonar1,TARGET,DISTANCE) -> addRule startingDistance(DISTANCE);
+   		
+   		// Siamo davanti al sonar1 ?
    		onEvent sonar : sonar(sonar1,TARGET,DISTANCE) -> {
    			//println("On sonar1 line");
-   			[ !? isatdistance(sonar1) ] {
+   			[ !? isatdistance(sonar1) ] { // Siamo alla distanza corretta? 
    				//println("On right distance");
-   				[ ?? adjustingDistance ] {
+   				[ ?? adjustingDistance ] { // Se il rover si sta muovendo gestito dal sonar, fermiamolo 
    					stop 40 time(0);
    					println("Distance from sonar1 reached.")
    				}
    			} else {
    				//println("Not on right distance");
-   				[ not !? adjustingDistance ] {
+   				[ not !? adjustingDistance ] { // Il rover parte non gestito dal sonar, prendiamone possesso
 					[ !? isfarther(sonar1) ] onward 40 time(0)
 						else backwards 40 time(0);
 					addRule adjustingDistance;
@@ -150,7 +153,7 @@ QActor sonarhandler context ctxRover4 {
 	   				}
 	   			} else {
 	   				[ not !? adjustingDistance ] {
-	   					stop 100 time (0);
+	   					stop 100 time (0); // FERMATI!!!
 	   					left 40 time (1000);
 						[ !? isfarther(sonar2) ] onward 40 time(0)
 							else backwards 40 time(0);
@@ -159,7 +162,7 @@ QActor sonarhandler context ctxRover4 {
 	   				}
 	   			}
 	   		} else {
-	   			[ ?? adjustingDistance ] {
+	   			[ ?? adjustingDistance ] { // Il sonar ha il controllo del rover ma non lo rileva, siamo finiti fuori dal suo campo
 	   				stop 100 time (0);
 	   				right 40 time (1000);
 	   				backwards 1 time (0);
