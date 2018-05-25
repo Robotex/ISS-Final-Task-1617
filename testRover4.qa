@@ -9,13 +9,14 @@ Event alarm : alarm(fire)
 
 Event unityAddr : unityAddr(X)
 Event startDistance : startDistance(X)
+Event sonarDistance : sonarDistance( SONARID, DISTANCE )
 
 Dispatch moveRover : cmd( CMD )
 
 Context ctxRover4 ip [ host="localhost" port=8090 ] -httpserver
 
 EventHandler evh for  sonar { 
-	memoCurrentEvent for sonarhandler
+	memoCurrentEvent -lastonly for sonarhandler
 } ;
 
 QActor sonarhandler context ctxRover4 {
@@ -38,6 +39,10 @@ QActor sonarhandler context ctxRover4 {
 			//actorPrintln( isnearrrr(SONARID,DISTANCE) ),
 			eval( lt, DISTANCE, 40).
 			//actorPrintln( isnear(SONARID,DISTANCE) ).
+			
+		updateStartingDistance(DISTANCE) :-
+			replaceRule( startingDistance(_),
+						 startingDistance(DISTANCE) ).
 
 		isnearer(SONARID) :-
 			sonardata( sonar(SONARID,TARGET,DISTANCE) ),
@@ -73,6 +78,9 @@ QActor sonarhandler context ctxRover4 {
 			eval( lt, DISTANCE, UPPERTHREASHOLD ).
 			//actorPrintln( isatdistance(SONARID) ).
 			
+		hasreached(SONARID) :-
+			sonardata( sonar(SONARID,TARGET,DISTANCE) ).
+			
 		isfinal :-
 			changeDistance,
 			finalDistance.
@@ -95,16 +103,16 @@ QActor sonarhandler context ctxRover4 {
 		
 	Plan setStartDistance resumeLastPlan
 		actions [
+			println("setStartDistance");
 			removeRule startingDistance(X);
-			onEvent startDistance : startDistance(X) -> addRule startingDistance(X)
+			onEvent startDistance : startDistance(X) -> demo updateStartingDistance(X)
 		]
    	
    	Plan processSonarData resumeLastPlan
 	   	actions[
 	   		demo updateSonarData
 	   	]
-   		switchTo checkDistance
-    	finally [ ?? sonardata(DATA) ] repeatPlan  
+   		switchTo checkDistance 
     
     Plan checkDistance resumeLastPlan
     actions[
@@ -113,59 +121,54 @@ QActor sonarhandler context ctxRover4 {
    		//[ !? isfarther(sonar1) ] forward rover -m moveRover : cmd(move("forward",40,0)) ;
    		//[ !? isnearer(sonar1)  ] forward rover -m moveRover : cmd(move("backward",40,0)) ;
    		
-   		[ !? adjustingDistance ] {
-   			println("Checking for reach...");
+   		[ not !? startingDistance(X) ] onEvent sonar : sonar(sonar1,TARGET,DISTANCE) -> addRule startingDistance(DISTANCE);
+   		onEvent sonar : sonar(sonar1,TARGET,DISTANCE) -> {
+   			//println("On sonar1 line");
    			[ !? isatdistance(sonar1) ] {
-   				println("Distace on line A reached.");
-   				stop 40 time(0) ;
-   				removeRule adjustingDistance
-   			};
-   			[ !? isatdistance(sonar2) ] {
-   				println("Distace on line B reached.");
-   				stop 40 time(0) ;
-   				println ("Mission completed!") ;
-   				removeRule adjustingDistance
-   			}
-   		} else {
-   			[ !? sonardata( sonar(sonar1,TARGET,DISTANCE) ) ] {
-   				[ not !? startingDistance(X) ] { [ !? sonardata( sonar(sonar1,TARGET,DISTANCE) ) ] addRule startingDistance(DISTANCE) };
-   				[ not !? isatdistance(sonar1) ] {
-	   				println("Request distance adjusting on sonar1 line");
+   				//println("On right distance");
+   				[ ?? adjustingDistance ] {
+   					stop 40 time(0);
+   					println("Distance from sonar1 reached.")
+   				}
+   			} else {
+   				//println("Not on right distance");
+   				[ not !? adjustingDistance ] {
 					[ !? isfarther(sonar1) ] onward 40 time(0)
 						else backwards 40 time(0);
-					addRule adjustingDistance
+					addRule adjustingDistance;
+					println("Started distance adjustement...")
+   				}
+   			}
+   		} else {
+   		
+	   		onEvent sonar : sonar(sonar2,TARGET,DISTANCE) -> {
+	   			//println("On sonar2 line");
+	   			[ !? isatdistance(sonar2) ] {
+	   				[ ?? adjustingDistance ] {
+	   					stop 40 time(0);
+	   					println("Distance from sonar2 reached.")
+	   				}
+	   			} else {
+	   				[ not !? adjustingDistance ] {
+	   					stop 100 time (0);
+	   					left 40 time (1000);
+						[ !? isfarther(sonar2) ] onward 40 time(0)
+							else backwards 40 time(0);
+						addRule adjustingDistance;
+						println("Started distance adjustement...")
+	   				}
 	   			}
-	   		};
-	   		[ !? sonardata( sonar(sonar2,TARGET,DISTANCE) ) ] {
-	   			[ not !? isatdistance(sonar2) ] {
-	   				println("Request distance adjusting on sonar2 line");
-	   				stop 40 time(0) ;
-					left 40 time(750) ;
-					[ !? isfarther(sonar2) ] onward 40 time(0)
-						else backwards 40 time(0);
-					addRule adjustingDistance
-		   		}
+	   		} else {
+	   			[ ?? adjustingDistance ] {
+	   				stop 100 time (0);
+	   				right 40 time (1000);
+	   				backwards 1 time (0);
+	   				println("Too fast too furious!")
+	   			}
 	   		}
-	   	}
+ 
+   		}
    	]
-   /*	switchTo [ !? needAdjustDistance ] adjustDistance
-   	
-   	Plan adjustDistance resumeLastPlan
-   		actions [
-   			println("Adjusting distance...");
-   			removeRule needAdjustDistance ;
-   			[ not !? isatdistance(sonar1) ] {
-				[ !? isfarther(sonar1) ] onward 40 time(0)
-				else backwards 40 time(0) ;
-				addRule adjustingDistance
-			};
-			[ not !? isatdistance(sonar2) ] {
-				left 40 time(750) ;
-				[ !? isfarther(sonar2) ] onward 40 time(0)
-				else backwards 40 time(0) ;
-				addRule adjustingDistance
-			}
-   		]*/
    	
    	Plan handleTout resumeLastPlan
    		actions []
@@ -207,11 +210,11 @@ QActor rover context ctxRover4 {
 	Plan execMove resumeLastPlan
 		actions [
 			printCurrentMessage;
-			onMsg moveRover : cmd(move("forward",Y,Z)) -> actorOp execUnity("rover","forward",0,40,0);
-			onMsg moveRover : cmd(move("backward",Y,Z)) -> actorOp execUnity("rover", "backward",0,40,0);
-			onMsg moveRover : cmd(move("stop",Y,Z)) -> actorOp execUnity("rover", "stop",0,40,0);
-			onMsg moveRover : cmd(move("left",Y,Z)) -> actorOp execUnity("rover", "left",1000,100,90);
-			onMsg moveRover : cmd(move("right",Y,Z)) -> actorOp execUnity("rover", "right",1000,100,90);
+			onMsg moveRover : cmd(move("forward",Y,Z)) -> onward 40 time (0);
+			onMsg moveRover : cmd(move("backward",Y,Z)) -> backwards 40 time (0);
+			onMsg moveRover : cmd(move("stop",Y,Z)) -> stop 40 time (0);
+			onMsg moveRover : cmd(move("left",Y,Z)) -> left 40 time (1000);
+			onMsg moveRover : cmd(move("right",Y,Z)) -> right 40 time (1000);
 			//onMsg moveRover : cmd(startDistance(X)) -> addRule startDistance(X)
 			onMsg moveRover : cmd(start) -> {
 				addRule started;
