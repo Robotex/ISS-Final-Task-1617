@@ -5,7 +5,7 @@ Event inputcmd : usercmd(executeInput(X))
 Event usercmd : usercmd(robotgui(X))
 Event sonar : sonar(SONARNAME, TARGETNAME, DISTANCE)
 Event sonarDetect : sonarDetect(X) // sonar on rover
-Event alarm : alarm(fire)
+Event alarm : alarm(X)
 
 Event unityAddr : unityAddr(X)
 Event startDistance : startDistance(X)
@@ -153,6 +153,7 @@ QActor sonarhandler context ctxRover4 {
 	   				}
 	   			} else {
 	   				[ not !? adjustingDistance ] {
+	   					emit alarm : alarm(sonar2);
 	   					forward rover -m moveRover : cmd(move("stop",100,0)); // FERMATI!!!
 	   					forward rover -m moveRover : cmd(move("left",40,1000));
 						[ !? isfarther(sonar2) ] forward rover -m moveRover : cmd(move("forward",20,0))
@@ -192,8 +193,7 @@ QActor rover context ctxRover4 {
 		transition 
 			whenTime 60000 -> handleTout,
 			whenEvent unityAddr -> connectToUnity,
-			whenMsg moveRover -> execMove, 
-			whenEvent sonarDetect -> stage1_obstacleAvoidingManagement,
+			whenMsg moveRover -> execMove,
 			whenEvent alarm -> handleAlarm
 		finally repeatPlan
 		
@@ -213,142 +213,16 @@ QActor rover context ctxRover4 {
 	Plan execMove resumeLastPlan
 		actions [
 			printCurrentMessage;
-			onMsg moveRover : cmd(move("forward",Y,Z)) -> onward 20 time (0);
-			onMsg moveRover : cmd(move("backward",Y,Z)) -> backwards 20 time (0);
-			onMsg moveRover : cmd(move("stop",Y,Z)) -> stop 40 time (0);
-			onMsg moveRover : cmd(move("left",Y,Z)) -> left 40 time (1000);
-			onMsg moveRover : cmd(move("right",Y,Z)) -> right 40 time (1000);
+			onMsg moveRover : cmd(move("forward",SPEED,DURATION)) -> onward 20 time (0);
+			onMsg moveRover : cmd(move("backward",SPEED,DURATION)) -> backwards 20 time (0);
+			onMsg moveRover : cmd(move("stop",SPEED,DURATION)) -> stop 20 time (750);
+			onMsg moveRover : cmd(move("left",SPEED,DURATION)) -> left 20 time (750);
+			onMsg moveRover : cmd(move("right",SPEED,DURATION)) -> right 20 time (750);
 			//onMsg moveRover : cmd(startDistance(X)) -> addRule startDistance(X)
-			onMsg moveRover : cmd(start) -> {
-				addRule started;
-				addRule run;
-				selfMsg moveRover : cmd(move("right",40,750));
-				selfMsg moveRover : cmd(move("forward",40,0))
-			}
+			onMsg moveRover : cmd(X) -> println(X)
 		]
 		
-		/*
-	 *  STAGE 1
-	 *  
-	 *  PREMESSA:" Il rover si è portato al punto di partenza, orientato verso il waypoint "
-	 *  Il rover si aspetta che l'utente prema il tasto start
-	 *  Una volta premuto il tasto start, il rover può incontrare degli ostacoli
-	 *  Lo stage1 finisce quando il rover viene individuato dal sonar2
-	 */
-	
-	Plan stage1[
-		[?? run]{ 
-			println("Going forward with stage1");
-			onward 40 time (0)
-		}
-	]
-	transition stopAfter 25000
-		whenEvent alarm-> handleAlarm,
-		whenEvent sonarDetect -> stage1_obstacleAvoidingManagement //SE QUESTO SCATTA: fixed or dynamic
 
-	finally repeatPlan
-	
-	Plan stage1_repeat resumeLastPlan[
-		println("Keep going");
-		addRule run
-	]
-	
-	Plan stage1_onward resumeLastPlan
-		actions [
-			onward 20 time (0)
-		]
-		switchTo handleCommands
-	
-	/*
-	 * Quando sonarDetect scatta significa che il rover ha davanti qualcosa, bisogna capire cos'è
-	 * Sappiamo che i fixed object sono oggetti fissi che non si spostano nel tempo
-	 * Invece l'oggetto mobile segue un percorso di avanti-indietro con un periodo di 5 secondi
-	 * Questo significa che ogni 2.5 secondi l'oggetto dinamico passa dal centro ad un'estremità del suo percorso
-	 * e viceversa.
-	 * 
-	 * Chiedo al rover di aspettare 2 secondi, se scatta di nuovo un sonarDetect dopo 2 secondi sappiamo quindi che
-	 * davanti al rover c'è un fixed altrimenti dynamic
-	 * 
-	 */
-	Plan stage1_obstacleAvoidingManagement resumeLastPlan [
-		println("obstacleAvoidingManagement");
-		addRule run;
-		stop 40 time(0)
-	]
-	switchTo stage1_evaluateDetection
-		
-	Plan stage1_evaluateDetection [
-		println("Evaluating: done") 
-	]
-	transition
-		whenTime 500 -> stage1_onward
-		whenEvent alarm->handleAlarm,
-		whenEvent sonarDetect->stage1_managingFixedObject_loop_begin
-	
-	/*
-	 * Se si arriva al plan seguente allora si è di fronte ad una barriera fissa
-	 * Si cerca quindi la strada per evitarla.
-	 * Bisogna considerare che non si conosce quale barriera fissa si ha davanti
-	 * La strategia è quella di muovere il rover a sinistra con la seguente strategia:
-	 * loop:-backwards left forward right evaluate
-	 * Nel caso in cui, durante il loop ci si ritrova a segnalare sonarDetect significa che siamo in presenza
-	 * di un wall laterale e bisogna correggere il tiro e andare a destra invece che a sinistra
-	 * 
-	 */	
-	Plan stage1_managingFixedObject_loop_begin[
-		onEvent sonarDetect:sonarDetect(NAME) ->println(detected(NAME));
-		backwards 40 time (1000)//forward rover -m robotMoveBackwards:robotMoveBackwards(1000)
-	]
-	switchTo stage1_managingFixedObject_loop_firstRotation
-	
-	Plan stage1_managingFixedObject_loop_firstRotation [
-		
-		[not !? leftEdge] left 40 time(750)
-		else right 40 time(750)
-	]
-	switchTo stage1_managingFixedObject_loop_avoiding
-	
-	Plan stage1_managingFixedObject_loop_avoiding [
-		println("Avoiding fixed obstacle");
-		onward 40 time (0)//forward rover -m robotMoveForward:robotMoveForward(2000)
-	]
-	transition
-		whenTime 2000 -> stage1_managingFixedObject_endloop,
-		whenEvent alarm->handleAlarm,
-		whenEvent [not !? leftEdge] sonarDetect->stage1_managingFixedObject_loop_edgeDetected
-	finally repeatPlan
-	
-	Plan stage1_managingFixedObject_loop_edgeDetected [
-		println("detecting left edge");
-		stop 40 time(0) ;
-		addRule edgeDetected;
-		[not !? leftEdge]
-			addRule leftEdge
-		else
-			removeRule leftEdge
-	] 
-	switchTo stage1_managingFixedObject_loop_edgeDetected_backward //DURATA RETRO-TRASLAZIONE LATERALE POST EDGE DETECTION
-	
-	Plan stage1_managingFixedObject_loop_edgeDetected_backward [
-		backwards 40 time (1000) //forward rover -m robotMoveBackwards:robotMoveBackwards(1000)
-	]
-	switchTo stage1_managingFixedObject_endloop
-	
-	Plan stage1_managingFixedObject_endloop[
-		
-		[?? edgeDetected] { //QUESTO SI VERIFICA SOLO QUANDO SI VA A SINISTRA E SI TROVA UN LEFTEDGE
-			[!? leftEdge]	right 40 time(750)
-			else left 40 time(750)
-			
-			
-		}
-		else {
-			[not !? leftEdge] right 40 time(750)
-			else left 40 time(750)
-		}
-		
-	]
-	switchTo stage1
 	
 	Plan handleTout resumeLastPlan
 		actions [
@@ -370,10 +244,169 @@ QActor rover context ctxRover4 {
 		
 	Plan handleAlarm resumeLastPlan
 		actions [
-			stop 40 time (0) 
+			onEvent alarm : alarm(fire) -> stop 40 time (0) 
 		]
 		
 	Plan endOfMove resumeLastPlan [ println("endOfMove") ]
+}
+
+QActor rovermind context ctxRover4 {
+	Plan init normal
+		actions [
+			println("Rover mind started")
+		]
+		switchTo handleCommands
+	
+	Plan handleCommands
+		actions [
+			
+		]
+		transition
+			whenTime 60000 -> handleTout,
+			whenMsg moveRover -> execMove
+		
+	Plan execMove resumeLastPlan
+		actions [
+			onMsg moveRover : cmd(start) -> {
+				addRule run;
+				forward rover -m moveRover : cmd(move("right",40,750))
+			}
+		]
+		switchTo [ !? run ] stage1
+		
+		/*
+	 *  STAGE 1
+	 *  
+	 *  PREMESSA:" Il rover si è portato al punto di partenza, orientato verso il waypoint "
+	 *  Il rover si aspetta che l'utente prema il tasto start
+	 *  Una volta premuto il tasto start, il rover può incontrare degli ostacoli
+	 *  Lo stage1 finisce quando il rover viene individuato dal sonar2
+	 */
+	
+	Plan stage1[
+		[?? run]{ 
+			println("Going forward with stage1");
+			forward rover -m moveRover : cmd(move("forward",20,0))
+		}
+	]
+	transition stopAfter 25000
+		whenEvent alarm-> handleAlarm,
+		whenEvent sonarDetect -> stage1_obstacleAvoidingManagement //SE QUESTO SCATTA: fixed or dynamic
+
+	finally repeatPlan
+	
+	Plan stage1_repeat resumeLastPlan[
+		println("Keep going");
+		addRule run
+	]
+
+	/*
+	 * Quando sonarDetect scatta significa che il rover ha davanti qualcosa, bisogna capire cos'è
+	 * Sappiamo che i fixed object sono oggetti fissi che non si spostano nel tempo
+	 * Invece l'oggetto mobile segue un percorso di avanti-indietro con un periodo di 5 secondi
+	 * Questo significa che ogni 2.5 secondi l'oggetto dinamico passa dal centro ad un'estremità del suo percorso
+	 * e viceversa.
+	 * 
+	 * Chiedo al rover di aspettare 2 secondi, se scatta di nuovo un sonarDetect dopo 2 secondi sappiamo quindi che
+	 * davanti al rover c'è un fixed altrimenti dynamic
+	 * 
+	 */
+	Plan stage1_obstacleAvoidingManagement resumeLastPlan [
+		println("obstacleAvoidingManagement");
+		addRule run;
+		forward rover -m moveRover : cmd(move("stop",20,0));
+		delay 4000
+	]
+	transition
+		whenTime 4000 -> stage1_evaluateDetection,
+		whenEvent alarm->handleAlarm
+		
+	Plan stage1_evaluateDetection [
+		println("Evaluating: done") 
+	]
+	transition
+		whenTime 500 -> stage1
+		whenEvent alarm->handleAlarm,
+		whenEvent sonarDetect->stage1_managingFixedObject_loop_begin
+	
+	/*
+	 * Se si arriva al plan seguente allora si è di fronte ad una barriera fissa
+	 * Si cerca quindi la strada per evitarla.
+	 * Bisogna considerare che non si conosce quale barriera fissa si ha davanti
+	 * La strategia è quella di muovere il rover a sinistra con la seguente strategia:
+	 * loop:-backwards left forward right evaluate
+	 * Nel caso in cui, durante il loop ci si ritrova a segnalare sonarDetect significa che siamo in presenza
+	 * di un wall laterale e bisogna correggere il tiro e andare a destra invece che a sinistra
+	 * 
+	 */	
+	Plan stage1_managingFixedObject_loop_begin[
+		onEvent sonarDetect:sonarDetect(NAME) ->println(detected(NAME));
+		forward rover -m moveRover : cmd(move("backward",20,1000))
+	]
+	transition 
+		whenTime 1000 -> stage1_managingFixedObject_loop_firstRotation,
+		whenEvent alarm -> handleAlarm
+	
+	Plan stage1_managingFixedObject_loop_firstRotation [
+		
+		[not !? leftEdge] forward rover -m moveRover : cmd(move("left",40,750))
+		else forward rover -m moveRover : cmd(move("right",40,750))
+	]
+	switchTo stage1_managingFixedObject_loop_avoiding
+	
+	Plan stage1_managingFixedObject_loop_avoiding [
+		println("Avoiding fixed obstacle");
+		forward rover -m moveRover : cmd(move("forward",20,0))
+	]
+	transition
+		whenTime 2000 -> stage1_managingFixedObject_endloop,
+		whenEvent alarm->handleAlarm,
+		whenEvent [not !? leftEdge] sonarDetect->stage1_managingFixedObject_loop_edgeDetected
+	finally repeatPlan
+	
+	Plan stage1_managingFixedObject_loop_edgeDetected [
+		println("detecting left edge");
+		forward rover -m moveRover : cmd(move("stop",40,0));
+		addRule edgeDetected;
+		[not !? leftEdge]
+			addRule leftEdge
+		else
+			removeRule leftEdge
+	] 
+	transition
+		whenTime 400 -> stage1_managingFixedObject_loop_edgeDetected_backward //DURATA RETRO-TRASLAZIONE LATERALE POST EDGE DETECTION
+		whenEvent alarm -> handleAlarm
+	
+	Plan stage1_managingFixedObject_loop_edgeDetected_backward [
+		forward rover -m moveRover : cmd(move("backward",20,1000))
+	]
+	transition
+		whenTime 1000 -> stage1_managingFixedObject_endloop,
+		whenEvent alarm -> handleAlarm
+	
+	Plan stage1_managingFixedObject_endloop[
+		
+		[?? edgeDetected] { //QUESTO SI VERIFICA SOLO QUANDO SI VA A SINISTRA E SI TROVA UN LEFTEDGE
+			[!? leftEdge]	forward rover -m moveRover : cmd(move("right",40,750))
+			else forward rover -m moveRover : cmd(move("left",40,750))
+			
+			
+		}
+		else {
+			[not !? leftEdge] forward rover -m moveRover : cmd(move("right",40,750))
+			else forward rover -m moveRover : cmd(move("left",40,750))
+		}
+		
+	]
+	switchTo stage1
+	
+	Plan handleAlarm resumeLastPlan
+		actions [
+			onEvent alarm : alarm(X) -> println("[rovermind] Alarm detected! Halted execution.")
+		]
+	
+	Plan handleTout resumeLastPlan
+		actions []
 }
 
 QActor console context ctxRover4 {
@@ -396,7 +429,7 @@ QActor console context ctxRover4 {
 		
 	Plan handleCmd resumeLastPlan
 		actions [
-			onEvent cmd : cmd(start) -> forward rover -m moveRover : cmd(start) 
+			onEvent cmd : cmd(start) -> forward rovermind -m moveRover : cmd(start) 
 		]
 	
 	Plan handleUserCmd resumeLastPlan
