@@ -151,6 +151,8 @@ QActor sonarhandler context ctxRover4 {
 	   				[ ?? adjustingDistance ] {
 	   					forward rover -m moveRover : cmd(move("stop",40,0));
 	   					println("Distance from sonar2 reached.")
+	   				} else {
+	   					emit alarm : alarm(sonar2) // FERMATI!!!
 	   				}
 	   			} else {
 	   				[ not !? adjustingDistance ] {
@@ -271,6 +273,7 @@ QActor rovermind context ctxRover4 {
 		transition
 			whenTime 60000 -> handleTout,
 			whenMsg moveRover -> execMove
+		finally repeatPlan
 		
 	Plan execMove resumeLastPlan
 		actions [
@@ -322,10 +325,10 @@ QActor rovermind context ctxRover4 {
 		println("obstacleAvoidingManagement");
 		addRule run;
 		forward rover -m moveRover : cmd(move("stop",20,0));
-		delay 4000
+		delay 1500
 	]
 	transition
-		whenTime 4000 -> stage1_evaluateDetection,
+		whenTime 500 -> stage1_evaluateDetection,
 		whenEvent alarm->handleAlarm
 		
 	Plan stage1_evaluateDetection [
@@ -413,7 +416,7 @@ QActor rovermind context ctxRover4 {
 			whenTime 60000 -> handleTout,
 			whenEvent sonarDetect -> stage1_obstacleAvoidingManagement //SE QUESTO SCATTA: fixed or dynamic
 	
-	Plan handleAlarm resumeLastPlan
+	Plan handleAlarm
 		actions [
 			onEvent alarm : alarm(X) -> println("[rovermind] Alarm detected! Halted execution.");
 			onEvent alarm : alarm(fire) -> {
