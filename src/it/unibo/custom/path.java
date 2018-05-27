@@ -8,6 +8,7 @@ import java.util.Stack;
 
 import alice.tuprolog.Int;
 import alice.tuprolog.Prolog;
+import cli.System.TimeSpan;
 
 import java.util.Queue;
 import java.util.Iterator;
@@ -20,9 +21,21 @@ public class path {
 	public static class Action{
 		public String move;
 		public String time;
+		private long timeStamp;
+		private long actualDuration;
 		public Action(String move, String time){
-			this.move = move.split(":")[1];
+			this.move = move;
 			this.time = time;
+			this.timeStamp = System.currentTimeMillis();			
+		}
+		
+		public Action(String move, String time, String timeout){
+			this.move = move;
+			this.time = time;
+			this.timeStamp = System.currentTimeMillis();
+			if(time == "0" || time.isEmpty())
+				this.actualDuration = Long.parseLong(timeout);			
+			
 		}
 		public String toString(){
 			return move + "("+time+")";
@@ -31,8 +44,24 @@ public class path {
 			return QActorUtils.unifyMsgContent(prologEngine, this.move +"(TIME)", this.move + "(" + this.time + ")", null ).toString();			
 		}
 	}
+	
+	
 	public static void register(QActor myself, String move, String time) {
-		stack.add(new Action(move, time));
+		Action action = new Action(move, time);
+		
+		if(action.move == "stop" && stack.size() > 0){
+			Action lastAction = stack.get(stack.size() - 1);
+			lastAction.actualDuration = System.currentTimeMillis() - lastAction.timeStamp; 
+		}
+		stack.add(action);		
+	}
+	public static void register(QActor myself, String move, String time, String timeout) {
+		Action action = new Action(move, time, timeout);		
+		if(action.move == "stop" && stack.size() > 0){
+			Action lastAction = stack.get(stack.size() - 1);
+			lastAction.actualDuration = System.currentTimeMillis() - lastAction.timeStamp; 
+		}
+		stack.add(action);
 	}
 	
 	public static void startReverse(QActor myself) throws Exception{
@@ -45,10 +74,7 @@ public class path {
 				try {					
 					myself.sendMsg(curraction.move, "rover", "dispatch", curraction.formatAsMessage(myself.getPrologEngine()));
 					Thread.sleep(Integer.parseInt(curraction.time) + 2000);
-				} catch (Exception e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
+				} catch (Exception e) {	}
 			}	
 		};
 		reverse.run();		

@@ -228,6 +228,12 @@ QActor rover context ctxRover4 {
 			onMsg moveRover : cmd(move("left",SPEED,DURATION)) -> left 20 time (750);
 			onMsg moveRover : cmd(move("right",SPEED,DURATION)) -> right 20 time (750);
 			//onMsg moveRover : cmd(startDistance(X)) -> addRule startDistance(X)
+			onMsg moveRover : cmd(move("forward",SPEED,DURATION)) -> javaRun it.unibo.custom.path.register("forward", DURATION);
+			onMsg moveRover : cmd(move("backward",SPEED,DURATION)) -> javaRun it.unibo.custom.path.register("backward", DURATION);
+			onMsg moveRover : cmd(move("stop",SPEED,DURATION)) -> javaRun it.unibo.custom.path.register("stop", DURATION);
+			onMsg moveRover : cmd(move("left",SPEED,DURATION)) -> javaRun it.unibo.custom.path.register("left", DURATION);
+			onMsg moveRover : cmd(move("right",SPEED,DURATION)) -> javaRun it.unibo.custom.path.register("right", DURATION);
+			
 			onMsg moveRover : cmd(X) -> println(X)
 		]
 		
