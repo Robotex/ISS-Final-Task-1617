@@ -98,7 +98,8 @@ QActor sonarhandler context ctxRover4 {
 	    transition 
 			whenTime 60000 -> handleTout,
 	    	whenEvent sonar -> processSonarData,
-	    	whenEvent startDistance -> setStartDistance
+	    	whenEvent startDistance -> setStartDistance,
+	    	whenEvent alarm -> handleAlarm
 	   	finally repeatPlan
 		
 	Plan setStartDistance resumeLastPlan
@@ -176,6 +177,13 @@ QActor sonarhandler context ctxRover4 {
    	
    	Plan handleTout resumeLastPlan
    		actions []
+   		
+   	Plan handleAlarm resumeLastPlan
+   		actions [
+   			onEvent alarm : alarm(fire) -> {
+   				[ ?? adjustingDistance] println("[sonarhandler] detected fire alarm while I had control, cleared out.")
+   			}
+   		]
 }
 
 QActor rover context ctxRover4 {
@@ -400,10 +408,21 @@ QActor rovermind context ctxRover4 {
 	]
 	switchTo stage1
 	
+	Plan stage2 
+		actions []
+		transition
+			whenTime 60000 -> handleTout,
+			whenEvent sonarDetect -> stage1_obstacleAvoidingManagement //SE QUESTO SCATTA: fixed or dynamic
+	
 	Plan handleAlarm resumeLastPlan
 		actions [
-			onEvent alarm : alarm(X) -> println("[rovermind] Alarm detected! Halted execution.")
+			onEvent alarm : alarm(X) -> println("[rovermind] Alarm detected! Halted execution.");
+			onEvent alarm : alarm(fire) -> {
+				addRule manual;
+				println("[rovermind] Switching to manual control plan...")
+			}
 		]
+		switchTo [?? manual] stage2
 	
 	Plan handleTout resumeLastPlan
 		actions []
