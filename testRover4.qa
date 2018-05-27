@@ -154,8 +154,7 @@ QActor sonarhandler context ctxRover4 {
 	   				}
 	   			} else {
 	   				[ not !? adjustingDistance ] {
-	   					emit alarm : alarm(sonar2);
-	   					forward rover -m moveRover : cmd(move("stop",100,0)); // FERMATI!!!
+	   					emit alarm : alarm(sonar2); // FERMATI!!!
 	   					forward rover -m moveRover : cmd(move("left",40,1000));
 						[ !? isfarther(sonar2) ] forward rover -m moveRover : cmd(move("forward",20,0))
 							else forward rover -m moveRover : cmd(move("backward",20,0));
@@ -252,7 +251,7 @@ QActor rover context ctxRover4 {
 		
 	Plan handleAlarm resumeLastPlan
 		actions [
-			onEvent alarm : alarm(fire) -> stop 40 time (0) 
+			stop 40 time (0) 
 		]
 		
 	Plan endOfMove resumeLastPlan [ println("endOfMove") ]
