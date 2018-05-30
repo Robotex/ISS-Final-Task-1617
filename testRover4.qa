@@ -49,7 +49,7 @@ QActor sonarhandler context ctxRover4 {
 			startingDistance(GOALDISTANCE),
 			eval( lt, DISTANCE, GOALDISTANCE),
 			eval( minus, GOALDISTANCE, DISTANCE, R ),
-			eval( gt, R, 5).
+			eval( gt, R, 2).
 			//actorPrintln( isnearer(SONARID) ).
 			
 		isfarther(SONARID) :-
@@ -57,14 +57,14 @@ QActor sonarhandler context ctxRover4 {
 			startingDistance(GOALDISTANCE),
 			eval( gt, DISTANCE, GOALDISTANCE),
 			eval( minus, DISTANCE, GOALDISTANCE, R ),
-			eval( gt, R, 5).
+			eval( gt, R, 2).
 			//actorPrintln( isfarther(SONARID) ).
 			
 		isatdistance(SONARID) :-
 			sonardata( sonar(SONARID,TARGET,DISTANCE) ),
 			startingDistance(GOALDISTANCE),
-			eval( minus, GOALDISTANCE, 5, LOWERTHREASHOLD ),
-			eval( plus, GOALDISTANCE, 5, UPPERTHREASHOLD ),
+			eval( minus, GOALDISTANCE, 2, LOWERTHREASHOLD ),
+			eval( plus, GOALDISTANCE, 2, UPPERTHREASHOLD ),
 			eval( gt, DISTANCE, LOWERTHREASHOLD ),
 			eval( lt, DISTANCE, UPPERTHREASHOLD ).
 			//actorPrintln( isatdistance(SONARID) ).
@@ -72,8 +72,8 @@ QActor sonarhandler context ctxRover4 {
 		isatdistance2(SONARID) :-
 			retract( msg(M,EV,EMITTER,none,sonar(SONARID,TARGET,DISTANCE),N) ),
 			startingDistance(GOALDISTANCE),
-			eval( minus, GOALDISTANCE, 5, LOWERTHREASHOLD ),
-			eval( plus, GOALDISTANCE, 5, UPPERTHREASHOLD ),
+			eval( minus, GOALDISTANCE, 2, LOWERTHREASHOLD ),
+			eval( plus, GOALDISTANCE, 2, UPPERTHREASHOLD ),
 			eval( gt, DISTANCE, LOWERTHREASHOLD ),
 			eval( lt, DISTANCE, UPPERTHREASHOLD ).
 			//actorPrintln( isatdistance(SONARID) ).
@@ -136,9 +136,11 @@ QActor sonarhandler context ctxRover4 {
    				}
    			} else {
    				//println("Not on right distance");
-   				[ not !? adjustingDistance ] { // Il rover parte non gestito dal sonar, prendiamone possesso
-					[ !? isfarther(sonar1) ] forward rover -m moveRover : cmd(move("forward",20,0))
-						else forward rover -m moveRover : cmd(move("backward",20,0));
+   				[ not !? adjustingDistance ] { // Il rover parte non gestito dal sonar, prendiamone possessoù
+   				
+		println("bug2?");
+					[ !? isfarther(sonar1) ] forward rover -m moveRover : cmd(move("forward",20,0));
+      				[ !? isnearer(sonar1) ] forward rover -m moveRover : cmd(move("backward",20,0));
 					addRule adjustingDistance;
 					println("Started distance adjustement...")
    				}
@@ -152,11 +154,13 @@ QActor sonarhandler context ctxRover4 {
 	   					forward rover -m moveRover : cmd(move("stop",40,0));
 	   					println("Distance from sonar2 reached.")
 	   				} else {
-	   					emit alarm : alarm(sonar2) // FERMATI!!!
+	   					emit alarm : alarm(sonar2); // FERMATI!!!
+	   					println("fermati1")
 	   				}
 	   			} else {
 	   				[ not !? adjustingDistance ] {
 	   					emit alarm : alarm(sonar2); // FERMATI!!!
+						println("fermati2");
 	   					forward rover -m moveRover : cmd(move("left",40,1000));
 						[ !? isfarther(sonar2) ] forward rover -m moveRover : cmd(move("forward",20,0))
 							else forward rover -m moveRover : cmd(move("backward",20,0));
@@ -221,7 +225,6 @@ QActor rover context ctxRover4 {
 			
 	Plan execMove resumeLastPlan
 		actions [
-			printCurrentMessage;
 			onMsg moveRover : cmd(move("forward",SPEED,DURATION)) -> {
 				onward 20 time (0);
 				javaRun it.unibo.custom.path.register("forward", DURATION)				
@@ -403,6 +406,7 @@ QActor rovermind context ctxRover4 {
 		whenEvent alarm -> handleAlarm
 	
 	Plan stage1_managingFixedObject_loop_edgeDetected_backward [
+		println("bug?");
 		forward rover -m moveRover : cmd(move("backward",20,1000))
 	]
 	transition
@@ -433,6 +437,7 @@ QActor rovermind context ctxRover4 {
 	
 	Plan handleAlarm
 		actions [
+			printCurrentEvent;
 			onEvent alarm : alarm(X) -> println("[rovermind] Alarm detected! Halted execution.");
 			onEvent alarm : alarm(fire) -> {
 				addRule manual;
