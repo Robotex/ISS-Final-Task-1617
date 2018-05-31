@@ -176,12 +176,8 @@ public abstract class AbstractSonarhandler extends QActor {
 	    			if( (guardVars = QActorUtils.evalTheGuard(this, " !?isatdistance(sonar1)" )) != null ){
 	    			{//actionseq
 	    			if( (guardVars = QActorUtils.evalTheGuard(this, " ??adjustingDistance" )) != null ){
-	    			{//actionseq
 	    			temporaryStr = QActorUtils.unifyMsgContent(pengine,"cmd(CMD)","cmd(move(\"stop\",40,0))", guardVars ).toString();
 	    			sendMsg("moveRover","rover", QActorContext.dispatch, temporaryStr ); 
-	    			temporaryStr = "\"Distance from sonar1 reached.\"";
-	    			println( temporaryStr );  
-	    			};//actionseq
 	    			}
 	    			};//actionseq
 	    			}
@@ -199,8 +195,6 @@ public abstract class AbstractSonarhandler extends QActor {
 	    			}
 	    			temporaryStr = "adjustingDistance";
 	    			addRule( temporaryStr );  
-	    			temporaryStr = "\"Started distance adjustement...\"";
-	    			println( temporaryStr );  
 	    			};//actionseq
 	    			}
 	    			};//actionseq
@@ -221,8 +215,6 @@ public abstract class AbstractSonarhandler extends QActor {
 	    			{//actionseq
 	    			temporaryStr = QActorUtils.unifyMsgContent(pengine,"cmd(CMD)","cmd(move(\"stop\",40,0))", guardVars ).toString();
 	    			sendMsg("moveRover","rover", QActorContext.dispatch, temporaryStr ); 
-	    			temporaryStr = "\"Distance from sonar2 reached.\"";
-	    			println( temporaryStr );  
 	    			};//actionseq
 	    			}
 	    			else{ {//actionseq
@@ -247,8 +239,6 @@ public abstract class AbstractSonarhandler extends QActor {
 	    			sendMsg("moveRover","rover", QActorContext.dispatch, temporaryStr ); 
 	    			}temporaryStr = "adjustingDistance";
 	    			addRule( temporaryStr );  
-	    			temporaryStr = "\"Started distance adjustement...\"";
-	    			println( temporaryStr );  
 	    			};//actionseq
 	    			}
 	    			};//actionseq
@@ -263,8 +253,6 @@ public abstract class AbstractSonarhandler extends QActor {
 	    	sendMsg("moveRover","rover", QActorContext.dispatch, temporaryStr ); 
 	    	temporaryStr = QActorUtils.unifyMsgContent(pengine,"cmd(CMD)","cmd(move(\"backward\",1,0))", guardVars ).toString();
 	    	sendMsg("moveRover","rover", QActorContext.dispatch, temporaryStr ); 
-	    	temporaryStr = "\"Too fast too furious!\"";
-	    	println( temporaryStr );  
 	    	};//actionseq
 	    	}
 	    	};//actionseq

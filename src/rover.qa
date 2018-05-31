@@ -35,12 +35,8 @@ QActor sonarhandler context ctxRover {
 			
 		isnear(SONARID,DISTANCE) :- 
 			sonardata( sonar(SONARID,TARGET,DISTANCE) ),
-			eval( lt, DISTANCE, 40).			
-			
-		updateStartingDistance(DISTANCE) :-
-			replaceRule( startingDistance(_),
-						 startingDistance(DISTANCE) ).
-
+			eval( lt, DISTANCE, 40).
+				
 		isnearer(SONARID) :-
 			sonardata( sonar(SONARID,TARGET,DISTANCE) ),
 			startingDistance(GOALDISTANCE),
@@ -61,22 +57,7 @@ QActor sonarhandler context ctxRover {
 			eval( minus, GOALDISTANCE, 2, LOWERTHREASHOLD ),
 			eval( plus, GOALDISTANCE, 2, UPPERTHREASHOLD ),
 			eval( gt, DISTANCE, LOWERTHREASHOLD ),
-			eval( lt, DISTANCE, UPPERTHREASHOLD ).
-			
-		isatdistance2(SONARID) :-
-			retract( msg(M,EV,EMITTER,none,sonar(SONARID,TARGET,DISTANCE),N) ),
-			startingDistance(GOALDISTANCE),
-			eval( minus, GOALDISTANCE, 2, LOWERTHREASHOLD ),
-			eval( plus, GOALDISTANCE, 2, UPPERTHREASHOLD ),
-			eval( gt, DISTANCE, LOWERTHREASHOLD ),
-			eval( lt, DISTANCE, UPPERTHREASHOLD ).
-			
-		hasreached(SONARID) :-
-			sonardata( sonar(SONARID,TARGET,DISTANCE) ).
-			
-		isfinal :-
-			changeDistance,
-			finalDistance.
+			eval( lt, DISTANCE, UPPERTHREASHOLD ).		
 	}
 	
 	Plan init normal
@@ -111,33 +92,23 @@ QActor sonarhandler context ctxRover {
     Plan checkDistance resumeLastPlan
     actions[
    		// Se manca startingDistance ovvero al primo avvio, impostalo al valore attuale rilevato
-   		[ not !? startingDistance(X) ] onEvent sonar : sonar(sonar1,TARGET,DISTANCE) -> addRule startingDistance(DISTANCE);
-   		
-   		// Siamo davanti al sonar1 ?
-   		onEvent sonar : sonar(sonar1,TARGET,DISTANCE) -> {
-   			// Siamo alla distanza corretta? 
-   			[ !? isatdistance(sonar1) ] { 
-   				// Se il rover si sta muovendo gestito dal sonar, fermiamolo
-   				[ ?? adjustingDistance ] {  
-   					forward rover -m moveRover : cmd(move("stop",40,0));
-   					println("Distance from sonar1 reached.")
-   				}
+   		[ not !? startingDistance(X) ] onEvent sonar : sonar(sonar1,TARGET,DISTANCE) -> addRule startingDistance(DISTANCE);   		
+   		onEvent sonar : sonar(sonar1,TARGET,DISTANCE) -> { // Siamo davanti al sonar1 ?
+   			[ !? isatdistance(sonar1) ] { // Siamo alla distanza corretta?
+	   			// Se il rover si sta muovendo gestito dal sonar, fermiamolo
+   				[ ?? adjustingDistance ] forward rover -m moveRover : cmd(move("stop",40,0))	
    			} else {
-   				 // Il rover parte non gestito dal sonar, prendiamone possesso
-   				[ not !? adjustingDistance ] {
+   				[ not !? adjustingDistance ] { // Il rover parte non gestito dal sonar, prendiamone possesso
 					[ !? isfarther(sonar1) ] forward rover -m moveRover : cmd(move("forward",20,0));
       				[ !? isnearer(sonar1) ] forward rover -m moveRover : cmd(move("backward",20,0));
-					addRule adjustingDistance;
-					println("Started distance adjustement...")
+					addRule adjustingDistance
    				}
    			}
-   		} else {
-   		
+   		} else {   		
 	   		onEvent sonar : sonar(sonar2,TARGET,DISTANCE) -> {
 	   			[ !? isatdistance(sonar2) ] {
 	   				[ ?? adjustingDistance ] {
-	   					forward rover -m moveRover : cmd(move("stop",40,0));
-	   					println("Distance from sonar2 reached.")
+	   					forward rover -m moveRover : cmd(move("stop",40,0))
 	   				} else {
 	   					emit alarm : alarm(sonar2) // Ferma il rover
 	   				}
@@ -147,8 +118,7 @@ QActor sonarhandler context ctxRover {
 	   					forward rover -m moveRover : cmd(move("left",40,1000));
 						[ !? isfarther(sonar2) ] forward rover -m moveRover : cmd(move("forward",20,0))
 							else forward rover -m moveRover : cmd(move("backward",20,0));
-						addRule adjustingDistance;
-						println("Started distance adjustement...")
+						addRule adjustingDistance
 	   				}
 	   			}
 	   		} else {
@@ -156,8 +126,7 @@ QActor sonarhandler context ctxRover {
 	   			[ ?? adjustingDistance ] { 
 	   				forward rover -m moveRover : cmd(move("stop",100,0));
 	   				forward rover -m moveRover : cmd(move("right",40,1000));
-	   				forward rover -m moveRover : cmd(move("backward",1,0));
-	   				println("Too fast too furious!")
+	   				forward rover -m moveRover : cmd(move("backward",1,0))
 	   			}
 	   		}
  
@@ -178,15 +147,11 @@ QActor sonarhandler context ctxRover {
 QActor rover context ctxRover {
 
 	Plan init normal
-		actions [
-			println("Rover started!")
-		]
+		actions []
 		switchTo handleCommands
 	
 	Plan handleCommands
-		actions [
-			
-		]
+		actions []
 		transition 
 			whenTime 60000 -> handleTout,
 			whenEvent unityAddr -> connectToUnity,
@@ -196,8 +161,7 @@ QActor rover context ctxRover {
 		
 	Plan connectToUnity resumeLastPlan 
 		actions [
-			memoCurrentEvent;
-			[!? unityOn] println("Unity is already connected") 
+			memoCurrentEvent
 			else {
 				onEvent unityAddr:unityAddr(X) -> connectUnity "X";
 				actorOp createSimulatedActor;				
@@ -227,35 +191,28 @@ QActor rover context ctxRover {
 			onMsg moveRover : cmd(move("right",SPEED,DURATION)) -> {
 				right 20 time (750);
 				javaRun it.unibo.custom.path.register("right", DURATION)				
-			};
-			
+			};			
 			onMsg moveRover : cmd(X) -> println(X)
 		]
 	
 	Plan handleTout resumeLastPlan
-		actions [
-			println("Time out")
-		]
+		actions []
 		
 	Plan handleAlarm resumeLastPlan
 		actions [
 			stop 40 time (0) 
 		]
 		
-	Plan endOfMove resumeLastPlan [ println("endOfMove") ]
+	Plan endOfMove resumeLastPlan []
 }
 
 QActor rovermind context ctxRover {
 	Plan init normal
-		actions [
-			println("Rover mind started")
-		]
+		actions []
 		switchTo handleCommands
 	
 	Plan handleCommands
-		actions [
-			
-		]
+		actions []
 		transition
 			whenTime 60000 -> handleTout,
 			whenMsg moveRover -> execMove
@@ -270,18 +227,8 @@ QActor rovermind context ctxRover {
 		]
 		switchTo [ !? run ] stage1
 		
-		/*
-	 *  STAGE 1
-	 *  
-	 *  PREMESSA:" Il rover si è portato al punto di partenza, orientato verso il waypoint "
-	 *  Il rover si aspetta che l'utente prema il tasto start
-	 *  Una volta premuto il tasto start, il rover può incontrare degli ostacoli
-	 *  Lo stage1 finisce quando il rover viene individuato dal sonar2
-	 */
-	
 	Plan stage1[
-		[?? run]{ 
-			println("Going forward with stage1");
+		[?? run]{
 			forward rover -m moveRover : cmd(move("forward",20,0))
 		}
 	]
@@ -295,19 +242,7 @@ QActor rovermind context ctxRover {
 		addRule run
 	]
 
-	/*
-	 * Quando sonarDetect scatta significa che il rover ha davanti qualcosa, bisogna capire cos'è
-	 * Sappiamo che i fixed object sono oggetti fissi che non si spostano nel tempo
-	 * Invece l'oggetto mobile segue un percorso di avanti-indietro con un periodo di 5 secondi
-	 * Questo significa che ogni 2.5 secondi l'oggetto dinamico passa dal centro ad un'estremità del suo percorso
-	 * e viceversa.
-	 * 
-	 * Chiedo al rover di aspettare 2 secondi, se scatta di nuovo un sonarDetect dopo 2 secondi sappiamo quindi che
-	 * davanti al rover c'è un fixed altrimenti dynamic
-	 * 
-	 */
 	Plan stage1_obstacleAvoidingManagement resumeLastPlan [
-		println("obstacleAvoidingManagement");
 		addRule run;
 		forward rover -m moveRover : cmd(move("stop",20,0));
 		delay 1500
@@ -316,24 +251,12 @@ QActor rovermind context ctxRover {
 		whenTime 500 -> stage1_evaluateDetection,
 		whenEvent alarm->handleAlarm
 		
-	Plan stage1_evaluateDetection [
-		println("Evaluating: done") 
-	]
+	Plan stage1_evaluateDetection []
 	transition
 		whenTime 500 -> stage1
 		whenEvent alarm->handleAlarm,
 		whenEvent sonarDetect->stage1_managingFixedObject_loop_begin
-	
-	/*
-	 * Se si arriva al plan seguente allora si � di fronte ad una barriera fissa
-	 * Si cerca quindi la strada per evitarla.
-	 * Bisogna considerare che non si conosce quale barriera fissa si ha davanti
-	 * La strategia � quella di muovere il rover a sinistra con la seguente strategia:
-	 * loop:-backwards left forward right evaluate
-	 * Nel caso in cui, durante il loop ci si ritrova a segnalare sonarDetect significa che siamo in presenza
-	 * di un wall laterale e bisogna correggere il tiro e andare a destra invece che a sinistra
-	 * 
-	 */	
+		
 	Plan stage1_managingFixedObject_loop_begin[
 		onEvent sonarDetect:sonarDetect(NAME) ->println(detected(NAME));
 		forward rover -m moveRover : cmd(move("backward",20,1000))
@@ -343,14 +266,12 @@ QActor rovermind context ctxRover {
 		whenEvent alarm -> handleAlarm
 	
 	Plan stage1_managingFixedObject_loop_firstRotation [
-		
 		[not !? leftEdge] forward rover -m moveRover : cmd(move("left",40,750))
 		else forward rover -m moveRover : cmd(move("right",40,750))
 	]
 	switchTo stage1_managingFixedObject_loop_avoiding
 	
 	Plan stage1_managingFixedObject_loop_avoiding [
-		println("Avoiding fixed obstacle");
 		forward rover -m moveRover : cmd(move("forward",20,0))
 	]
 	transition
@@ -360,7 +281,6 @@ QActor rovermind context ctxRover {
 	finally repeatPlan
 	
 	Plan stage1_managingFixedObject_loop_edgeDetected [
-		println("left edge detected");
 		forward rover -m moveRover : cmd(move("stop",40,0));
 		addRule edgeDetected;
 		[not !? leftEdge]
@@ -380,7 +300,7 @@ QActor rovermind context ctxRover {
 		whenEvent alarm -> handleAlarm
 	
 	Plan stage1_managingFixedObject_endloop[
-		// caso che si verifica soltanto in cui il rovar sta andando a sinistra (per obstacleAvoidance) e si trova un ostacolo davanti
+		// caso che si verifica soltanto in cui il rover sta andando a sinistra (per obstacleAvoidance) e si trova un ostacolo davanti
 		[?? edgeDetected] {
 			[!? leftEdge]	forward rover -m moveRover : cmd(move("right",40,750))
 			else forward rover -m moveRover : cmd(move("left",40,750))
@@ -397,16 +317,11 @@ QActor rovermind context ctxRover {
 		actions []
 		transition
 			whenTime 60000 -> handleTout,
-			whenEvent sonarDetect -> stage1_obstacleAvoidingManagement //se questo event viene generato, allora siamo davanti a un bostacle
+			whenEvent sonarDetect -> stage1_obstacleAvoidingManagement //se questo event viene generato, allora siamo davanti a un obstacle
 	
 	Plan handleAlarm
 		actions [
-			printCurrentEvent;
-			onEvent alarm : alarm(X) -> println("[rovermind] Alarm detected! Halted execution.");
-			onEvent alarm : alarm(fire) -> {
-				addRule manual;
-				println("[rovermind] Switching to manual control plan...")
-			}
+			onEvent alarm : alarm(fire) ->	addRule manual			
 		]
 		switchTo [?? manual] stage2
 	
@@ -416,15 +331,11 @@ QActor rovermind context ctxRover {
 
 QActor console context ctxRover {
 	Plan init normal
-		actions [
-			println("Console started!")
-		]
+		actions []
 		switchTo handleCommands
 	
 	Plan handleCommands
-		actions [
-		
-		]
+		actions []
 		transition 
 			whenTime 60000 -> handleTout,
 			whenEvent cmd -> handleCmd,

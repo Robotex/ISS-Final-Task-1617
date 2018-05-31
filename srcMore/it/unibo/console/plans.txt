@@ -1,4 +1,3 @@
-plan(1,init, sentence(true,move(print("Console started!")),'','' ))
 plan(1,handleCmd, sentence(true,eventswitch(cmd, »cmd( start), forward(rovermind, moveRover,cmd( start)) ),'','' ))
 plan(2,handleCmd, sentence(true,move(resumeplan),'','' ))
 plan(1,handleUserCmd, sentence(true,eventswitch(usercmd, »usercmd( robotgui( w( X))), forward(rover, moveRover,cmd( move( "forward",40,0))) ),'','' ))

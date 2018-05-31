@@ -88,8 +88,6 @@ public abstract class AbstractRovermind extends QActor {
 	    try{	
 	     PlanRepeat pr = PlanRepeat.setUp("init",-1);
 	    	String myselfName = "init";  
-	    	temporaryStr = "\"Rover mind started\"";
-	    	println( temporaryStr );  
 	    	//switchTo handleCommands
 	        switchToPlanAsNextState(pr, myselfName, "rovermind_"+myselfName, 
 	              "handleCommands",false, false, null); 
@@ -149,8 +147,6 @@ public abstract class AbstractRovermind extends QActor {
 	    	String myselfName = "stage1";  
 	    	if( (guardVars = QActorUtils.evalTheGuard(this, " ??run" )) != null ){
 	    	{//actionseq
-	    	temporaryStr = "\"Going forward with stage1\"";
-	    	println( temporaryStr );  
 	    	temporaryStr = QActorUtils.unifyMsgContent(pengine,"cmd(CMD)","cmd(move(\"forward\",20,0))", guardVars ).toString();
 	    	sendMsg("moveRover","rover", QActorContext.dispatch, temporaryStr ); 
 	    	};//actionseq
@@ -183,8 +179,6 @@ public abstract class AbstractRovermind extends QActor {
 	    try{	
 	     PlanRepeat pr = PlanRepeat.setUp("stage1_obstacleAvoidingManagement",-1);
 	    	String myselfName = "stage1_obstacleAvoidingManagement";  
-	    	temporaryStr = "\"obstacleAvoidingManagement\"";
-	    	println( temporaryStr );  
 	    	temporaryStr = "run";
 	    	addRule( temporaryStr );  
 	    	temporaryStr = QActorUtils.unifyMsgContent(pengine,"cmd(CMD)","cmd(move(\"stop\",20,0))", guardVars ).toString();
@@ -208,8 +202,6 @@ public abstract class AbstractRovermind extends QActor {
 	    try{	
 	     PlanRepeat pr = PlanRepeat.setUp("stage1_evaluateDetection",-1);
 	    	String myselfName = "stage1_evaluateDetection";  
-	    	temporaryStr = "\"Evaluating: done\"";
-	    	println( temporaryStr );  
 	    	//bbb
 	     msgTransition( pr,myselfName,"rovermind_"+myselfName,false,
 	          new StateFun[]{stateTab.get("handleAlarm"), stateTab.get("stage1_managingFixedObject_loop_begin") }, 
@@ -277,8 +269,6 @@ public abstract class AbstractRovermind extends QActor {
 	     PlanRepeat pr = PlanRepeat.setUp(getName()+"_stage1_managingFixedObject_loop_avoiding",0);
 	     pr.incNumIter(); 	
 	    	String myselfName = "stage1_managingFixedObject_loop_avoiding";  
-	    	temporaryStr = "\"Avoiding fixed obstacle\"";
-	    	println( temporaryStr );  
 	    	temporaryStr = QActorUtils.unifyMsgContent(pengine,"cmd(CMD)","cmd(move(\"forward\",20,0))", guardVars ).toString();
 	    	sendMsg("moveRover","rover", QActorContext.dispatch, temporaryStr ); 
 	    	//bbb
@@ -297,8 +287,6 @@ public abstract class AbstractRovermind extends QActor {
 	    try{	
 	     PlanRepeat pr = PlanRepeat.setUp("stage1_managingFixedObject_loop_edgeDetected",-1);
 	    	String myselfName = "stage1_managingFixedObject_loop_edgeDetected";  
-	    	temporaryStr = "\"left edge detected\"";
-	    	println( temporaryStr );  
 	    	temporaryStr = QActorUtils.unifyMsgContent(pengine,"cmd(CMD)","cmd(move(\"stop\",40,0))", guardVars ).toString();
 	    	sendMsg("moveRover","rover", QActorContext.dispatch, temporaryStr ); 
 	    	temporaryStr = "edgeDetected";
@@ -393,33 +381,17 @@ public abstract class AbstractRovermind extends QActor {
 	    try{	
 	     PlanRepeat pr = PlanRepeat.setUp("handleAlarm",-1);
 	    	String myselfName = "handleAlarm";  
-	    	printCurrentEvent(false);
-	    	//onEvent 
-	    	setCurrentMsgFromStore(); 
-	    	curT = Term.createTerm("alarm(X)");
-	    	if( currentEvent != null && currentEvent.getEventId().equals("alarm") && 
-	    		pengine.unify(curT, Term.createTerm("alarm(X)")) && 
-	    		pengine.unify(curT, Term.createTerm( currentEvent.getMsg() ) )){ 
-	    			String parg = "\"[rovermind] Alarm detected! Halted execution.\"";
-	    			/* Print */
-	    			parg =  updateVars( Term.createTerm("alarm(X)"), 
-	    			                    Term.createTerm("alarm(X)"), 
-	    				    		  	Term.createTerm(currentEvent.getMsg()), parg);
-	    			if( parg != null ) println( parg );
-	    	}
 	    	//onEvent 
 	    	setCurrentMsgFromStore(); 
 	    	curT = Term.createTerm("alarm(fire)");
 	    	if( currentEvent != null && currentEvent.getEventId().equals("alarm") && 
 	    		pengine.unify(curT, Term.createTerm("alarm(X)")) && 
 	    		pengine.unify(curT, Term.createTerm( currentEvent.getMsg() ) )){ 
-	    			//println("WARNING: variable substitution not yet fully implemented " ); 
-	    			{//actionseq
-	    			temporaryStr = "manual";
-	    			addRule( temporaryStr );  
-	    			temporaryStr = "\"[rovermind] Switching to manual control plan...\"";
-	    			println( temporaryStr );  
-	    			};//actionseq
+	    			String parg="manual";
+	    			/* AddRule */
+	    			parg = updateVars(Term.createTerm("alarm(X)"),  Term.createTerm("alarm(fire)"), 
+	    				    		  					Term.createTerm(currentEvent.getMsg()), parg);
+	    			if( parg != null ) addRule(parg);	    		  					
 	    	}
 	    	//switchTo stage2
 	        switchToPlanAsNextState(pr, myselfName, "rovermind_"+myselfName, 

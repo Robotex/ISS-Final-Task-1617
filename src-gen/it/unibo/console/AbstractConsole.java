@@ -78,8 +78,6 @@ public abstract class AbstractConsole extends QActor {
 	    try{	
 	     PlanRepeat pr = PlanRepeat.setUp("init",-1);
 	    	String myselfName = "init";  
-	    	temporaryStr = "\"Console started!\"";
-	    	println( temporaryStr );  
 	    	//switchTo handleCommands
 	        switchToPlanAsNextState(pr, myselfName, "console_"+myselfName, 
 	              "handleCommands",false, false, null); 

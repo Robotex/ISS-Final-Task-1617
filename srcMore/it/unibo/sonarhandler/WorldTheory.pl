@@ -146,13 +146,9 @@ lastSonarData( SONARID):-retract( msg( M,EV,EMITTER,none,sonar( SONARID,TARGET,D
 lastSonarData( SONARID).
 updateSonarData:-lastSonarData( sonar1),lastSonarData( sonar2).
 isnear( SONARID,DISTANCE):-sonardata( sonar( SONARID,TARGET,DISTANCE)),eval( lt,DISTANCE,40).
-updateStartingDistance( DISTANCE):-replaceRule( startingDistance( _),startingDistance( DISTANCE)).
 isnearer( SONARID):-sonardata( sonar( SONARID,TARGET,DISTANCE)),startingDistance( GOALDISTANCE),eval( lt,DISTANCE,GOALDISTANCE),eval( minus,GOALDISTANCE,DISTANCE,R),eval( gt,R,2).
 isfarther( SONARID):-sonardata( sonar( SONARID,TARGET,DISTANCE)),startingDistance( GOALDISTANCE),eval( gt,DISTANCE,GOALDISTANCE),eval( minus,DISTANCE,GOALDISTANCE,R),eval( gt,R,2).
 isatdistance( SONARID):-sonardata( sonar( SONARID,TARGET,DISTANCE)),startingDistance( GOALDISTANCE),eval( minus,GOALDISTANCE,2,LOWERTHREASHOLD),eval( plus,GOALDISTANCE,2,UPPERTHREASHOLD),eval( gt,DISTANCE,LOWERTHREASHOLD),eval( lt,DISTANCE,UPPERTHREASHOLD).
-isatdistance2( SONARID):-retract( msg( M,EV,EMITTER,none,sonar( SONARID,TARGET,DISTANCE),N)),startingDistance( GOALDISTANCE),eval( minus,GOALDISTANCE,2,LOWERTHREASHOLD),eval( plus,GOALDISTANCE,2,UPPERTHREASHOLD),eval( gt,DISTANCE,LOWERTHREASHOLD),eval( lt,DISTANCE,UPPERTHREASHOLD).
-hasreached( SONARID):-sonardata( sonar( SONARID,TARGET,DISTANCE)).
-isfinal:-changeDistance,finalDistance.
 /*
 ------------------------------------------------------------------------
 testex :- actorPrintln( testex ),
