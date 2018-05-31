@@ -1,0 +1,58 @@
+/*
+*
+* A GraphViz DOT FSM description 
+* Please use a GraphViz visualizer (like http://www.webgraphviz.com)
+*  
+*/
+
+digraph finite_state_machine {
+	rankdir=LR
+	size="8,5"
+	
+	init [ color = red ][ fontcolor = red ][ penwidth = 3 ]
+	stage1_managingFixedObject_loop_firstRotation [ color = black ][ fontcolor = black ][ penwidth = 3 ]
+	stage1_managingFixedObject_loop_avoiding [ color = black ][ fontcolor = black ][ penwidth = 3 ]
+	stage1_repeat [ color = black ][ fontcolor = black ][ penwidth = 3 ]
+	stage1_managingFixedObject_loop_edgeDetected [ color = black ][ fontcolor = black ][ penwidth = 3 ]
+	handleCommands [ color = black ][ fontcolor = black ][ penwidth = 3 ]
+	stage1_managingFixedObject_endloop [ color = black ][ fontcolor = black ][ penwidth = 3 ]
+	execMove [ color = black ][ fontcolor = black ][ penwidth = 3 ]
+	stage1_managingFixedObject_loop_begin [ color = black ][ fontcolor = black ][ penwidth = 3 ]
+	handleAlarm [ color = black ][ fontcolor = black ][ penwidth = 3 ]
+	handleTout [ color = black ][ fontcolor = black ][ penwidth = 3 ]
+	stage1_obstacleAvoidingManagement [ color = black ][ fontcolor = black ][ penwidth = 3 ]
+	stage1_managingFixedObject_loop_edgeDetected_backward [ color = black ][ fontcolor = black ][ penwidth = 3 ]
+	stage1_evaluateDetection [ color = black ][ fontcolor = black ][ penwidth = 3 ]
+	stage2 [ color = black ][ fontcolor = black ][ penwidth = 3 ]
+	stage1 [ color = black ][ fontcolor = black ][ penwidth = 3 ]
+	
+	handleCommands -> handleTout [ label = "timeout(60000)" ][ color = green ][ fontcolor = green ][ dir = both ]
+	stage1_managingFixedObject_loop_avoiding -> stage1_managingFixedObject_endloop [ label = "timeout(2000)" ][ color = green ][ fontcolor = green ]
+	stage1_evaluateDetection -> stage1_managingFixedObject_loop_begin [ label = "sonarDetect" ][ color = black ][ fontcolor = black ]
+	stage1 -> stage1_obstacleAvoidingManagement [ label = "sonarDetect" ][ color = red ][ fontcolor = red ][ dir = both ]
+	stage1_managingFixedObject_loop_begin -> handleAlarm [ label = "alarm" ][ color = black ][ fontcolor = black ]
+	stage1 -> handleToutBuiltIn [ label = "timeout(25000)" ][ color = green ][ fontcolor = green ]
+	execMove -> stage1 [ label = "[ !? run ], switch" ][ color = black ][ fontcolor = black ]
+	stage1_obstacleAvoidingManagement -> stage1_evaluateDetection [ label = "timeout(500)" ][ color = green ][ fontcolor = green ]
+	stage1_managingFixedObject_loop_edgeDetected -> stage1_managingFixedObject_loop_edgeDetected_backward [ label = "timeout(400)" ][ color = green ][ fontcolor = green ]
+	stage1_managingFixedObject_loop_avoiding -> handleAlarm [ label = "alarm" ][ color = black ][ fontcolor = black ]
+	stage1_managingFixedObject_loop_avoiding -> stage1_managingFixedObject_loop_avoiding [ label = "repeat "][ style = dashed ][ color = blue ][ fontcolor = blue ]
+	handleAlarm -> stage2 [ label = "[ ?? manual ], switch" ][ color = black ][ fontcolor = black ]
+	stage1_evaluateDetection -> stage1 [ label = "timeout(500)" ][ color = green ][ fontcolor = green ]
+	stage1 -> stage1 [ label = "repeat "][ style = dashed ][ color = blue ][ fontcolor = blue ]
+	handleCommands -> execMove [ label = "moveRover" ][ color = red ][ fontcolor = red ][ dir = both ]
+	stage1_managingFixedObject_loop_avoiding -> stage1_managingFixedObject_loop_edgeDetected [ label = "[ !? leftEdge ], sonarDetect" ][ color = black ][ fontcolor = black ]
+	stage2 -> stage1_obstacleAvoidingManagement [ label = "sonarDetect" ][ color = red ][ fontcolor = red ][ dir = both ]
+	stage1_managingFixedObject_loop_edgeDetected_backward -> stage1_managingFixedObject_endloop [ label = "timeout(1000)" ][ color = green ][ fontcolor = green ]
+	stage1_evaluateDetection -> handleAlarm [ label = "alarm" ][ color = black ][ fontcolor = black ]
+	stage1_obstacleAvoidingManagement -> handleAlarm [ label = "alarm" ][ color = black ][ fontcolor = black ]
+	init -> handleCommands [ label = "switch" ][ color = black ][ fontcolor = black ]
+	stage1_managingFixedObject_loop_edgeDetected_backward -> handleAlarm [ label = "alarm" ][ color = black ][ fontcolor = black ]
+	stage1_managingFixedObject_loop_edgeDetected -> handleAlarm [ label = "alarm" ][ color = black ][ fontcolor = black ]
+	handleCommands -> handleCommands [ label = "repeat "][ style = dashed ][ color = blue ][ fontcolor = blue ]
+	stage1_managingFixedObject_loop_firstRotation -> stage1_managingFixedObject_loop_avoiding [ label = "switch" ][ color = black ][ fontcolor = black ]
+	stage1 -> handleAlarm [ label = "alarm" ][ color = black ][ fontcolor = black ]
+	stage1_managingFixedObject_loop_begin -> stage1_managingFixedObject_loop_firstRotation [ label = "timeout(1000)" ][ color = green ][ fontcolor = green ]
+	stage2 -> handleTout [ label = "timeout(60000)" ][ color = green ][ fontcolor = green ][ dir = both ]
+	stage1_managingFixedObject_endloop -> stage1 [ label = "switch" ][ color = black ][ fontcolor = black ]
+}

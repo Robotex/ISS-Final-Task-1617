@@ -11,13 +11,16 @@ digraph finite_state_machine {
 	
 	init [ color = red ][ fontcolor = red ][ penwidth = 3 ]
 	execMove [ color = black ][ fontcolor = black ][ penwidth = 3 ]
-	waitUserCmd [ color = black ][ fontcolor = black ][ penwidth = 3 ]
-	doconnectToUnity [ color = black ][ fontcolor = black ][ penwidth = 3 ]
+	endOfMove [ color = black ][ fontcolor = black ][ penwidth = 3 ]
+	handleAlarm [ color = black ][ fontcolor = black ][ penwidth = 3 ]
+	handleTout [ color = black ][ fontcolor = black ][ penwidth = 3 ]
+	handleCommands [ color = black ][ fontcolor = black ][ penwidth = 3 ]
 	connectToUnity [ color = black ][ fontcolor = black ][ penwidth = 3 ]
 	
-	connectToUnity -> doconnectToUnity [ label = "[ !? unityOn ], switch" ][ color = red ][ fontcolor = red ][ dir = both ]
-	waitUserCmd -> execMove [ label = "usercmd" ][ color = red ][ fontcolor = red ][ dir = both ]
-	waitUserCmd -> handleToutBuiltIn [ label = "timeout(600000)" ][ color = green ][ fontcolor = green ]
-	waitUserCmd -> waitUserCmd [ label = "repeat "][ style = dashed ][ color = blue ][ fontcolor = blue ]
-	init -> waitUserCmd [ label = "switch" ][ color = black ][ fontcolor = black ]
+	init -> handleCommands [ label = "switch" ][ color = black ][ fontcolor = black ]
+	handleCommands -> execMove [ label = "moveRover" ][ color = red ][ fontcolor = red ][ dir = both ]
+	handleCommands -> handleTout [ label = "timeout(60000)" ][ color = green ][ fontcolor = green ][ dir = both ]
+	handleCommands -> handleAlarm [ label = "alarm" ][ color = red ][ fontcolor = red ][ dir = both ]
+	handleCommands -> handleCommands [ label = "repeat "][ style = dashed ][ color = blue ][ fontcolor = blue ]
+	handleCommands -> connectToUnity [ label = "unityAddr" ][ color = red ][ fontcolor = red ][ dir = both ]
 }

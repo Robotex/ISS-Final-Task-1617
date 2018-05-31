@@ -26,7 +26,7 @@ public abstract class AbstractRover extends QActor {
 	protected String parg="";
 	protected boolean bres=false;
 	protected IActorAction action;
-	//protected String mqttServer = "";
+	 
 	
 		protected static IOutputEnvView setTheEnv(IOutputEnvView outEnvView ){
 			return outEnvView;
@@ -56,10 +56,12 @@ public abstract class AbstractRover extends QActor {
 	    protected void initStateTable(){  	
 	    	stateTab.put("handleToutBuiltIn",handleToutBuiltIn);
 	    	stateTab.put("init",init);
-	    	stateTab.put("waitUserCmd",waitUserCmd);
-	    	stateTab.put("execMove",execMove);
+	    	stateTab.put("handleCommands",handleCommands);
 	    	stateTab.put("connectToUnity",connectToUnity);
-	    	stateTab.put("doconnectToUnity",doconnectToUnity);
+	    	stateTab.put("execMove",execMove);
+	    	stateTab.put("handleTout",handleTout);
+	    	stateTab.put("handleAlarm",handleAlarm);
+	    	stateTab.put("endOfMove",endOfMove);
 	    }
 	    StateFun handleToutBuiltIn = () -> {	
 	    	try{	
@@ -77,55 +79,146 @@ public abstract class AbstractRover extends QActor {
 	    try{	
 	     PlanRepeat pr = PlanRepeat.setUp("init",-1);
 	    	String myselfName = "init";  
-	    	temporaryStr = "\"rover started\"";
+	    	temporaryStr = "\"Rover started!\"";
 	    	println( temporaryStr );  
-	    	//switchTo waitUserCmd
+	    	//switchTo handleCommands
 	        switchToPlanAsNextState(pr, myselfName, "rover_"+myselfName, 
-	              "waitUserCmd",false, false, null); 
+	              "handleCommands",false, false, null); 
 	    }catch(Exception e_init){  
 	    	 println( getName() + " plan=init WARNING:" + e_init.getMessage() );
 	    	 QActorContext.terminateQActorSystem(this); 
 	    }
 	    };//init
 	    
-	    StateFun waitUserCmd = () -> {	
+	    StateFun handleCommands = () -> {	
 	    try{	
-	     PlanRepeat pr = PlanRepeat.setUp(getName()+"_waitUserCmd",0);
+	     PlanRepeat pr = PlanRepeat.setUp(getName()+"_handleCommands",0);
 	     pr.incNumIter(); 	
-	    	String myselfName = "waitUserCmd";  
+	    	String myselfName = "handleCommands";  
 	    	//bbb
 	     msgTransition( pr,myselfName,"rover_"+myselfName,false,
-	          new StateFun[]{stateTab.get("execMove") },//new StateFun[]
-	          new String[]{"true","E","usercmd" },
-	          600000, "handleToutBuiltIn" );//msgTransition
-	    }catch(Exception e_waitUserCmd){  
-	    	 println( getName() + " plan=waitUserCmd WARNING:" + e_waitUserCmd.getMessage() );
+	          new StateFun[]{stateTab.get("connectToUnity"), stateTab.get("execMove"), stateTab.get("handleAlarm") }, 
+	          new String[]{"true","E","unityAddr", "true","M","moveRover", "true","E","alarm" },
+	          60000, "handleTout" );//msgTransition
+	    }catch(Exception e_handleCommands){  
+	    	 println( getName() + " plan=handleCommands WARNING:" + e_handleCommands.getMessage() );
 	    	 QActorContext.terminateQActorSystem(this); 
 	    }
-	    };//waitUserCmd
+	    };//handleCommands
+	    
+	    StateFun connectToUnity = () -> {	
+	    try{	
+	     PlanRepeat pr = PlanRepeat.setUp("connectToUnity",-1);
+	    	String myselfName = "connectToUnity";  
+	    	memoCurrentEvent( false );
+	    	if( (guardVars = QActorUtils.evalTheGuard(this, " !?unityOn" )) != null ){
+	    	temporaryStr = "\"Unity is already connected\"";
+	    	temporaryStr = QActorUtils.substituteVars(guardVars,temporaryStr);
+	    	println( temporaryStr );  
+	    	}
+	    	else{ {//actionseq
+	    	//onEvent 
+	    	setCurrentMsgFromStore(); 
+	    	curT = Term.createTerm("unityAddr(X)");
+	    	if( currentEvent != null && currentEvent.getEventId().equals("unityAddr") && 
+	    		pengine.unify(curT, Term.createTerm("unityAddr(X)")) && 
+	    		pengine.unify(curT, Term.createTerm( currentEvent.getMsg() ) )){ 
+	    			String parg = "X";
+	    			/* ConnectToUnity */
+	    			parg =  updateVars( Term.createTerm("unityAddr(X)"), 
+	    			                    Term.createTerm("unityAddr(X)"), 
+	    				    		  	Term.createTerm(currentEvent.getMsg()), parg);
+	    			if( parg != null ) initUnityConnection( parg );
+	    	}
+	    	parg = "createSimulatedActor"; 
+	    	actorOpExecute(parg, false);	//OCT17		 
+	    	temporaryStr = "unityOn";
+	    	addRule( temporaryStr );  
+	    	};//actionseq
+	    	}
+	    	repeatPlanNoTransition(pr,myselfName,"rover_"+myselfName,false,true);
+	    }catch(Exception e_connectToUnity){  
+	    	 println( getName() + " plan=connectToUnity WARNING:" + e_connectToUnity.getMessage() );
+	    	 QActorContext.terminateQActorSystem(this); 
+	    }
+	    };//connectToUnity
 	    
 	    StateFun execMove = () -> {	
 	    try{	
 	     PlanRepeat pr = PlanRepeat.setUp("execMove",-1);
 	    	String myselfName = "execMove";  
-	    	printCurrentEvent(false);
-	    	//onEvent 
+	    	//onMsg 
 	    	setCurrentMsgFromStore(); 
-	    	curT = Term.createTerm("usercmd(robotgui(unityAddr(X)))");
-	    	if( currentEvent != null && currentEvent.getEventId().equals("usercmd") && 
-	    		pengine.unify(curT, Term.createTerm("usercmd(CMD)")) && 
-	    		pengine.unify(curT, Term.createTerm( currentEvent.getMsg() ) )){ 
-	    			/* SwitchTransition */
-	    			String parg = "connectToUnity";
-	    			parg =  updateVars( Term.createTerm("usercmd(CMD)"), 
-	    				                Term.createTerm("usercmd(robotgui(unityAddr(X)))"), 
-	    				                Term.createTerm(currentEvent.getMsg()), parg);
-	    			if(parg != null){ 
-	    				switchToPlanAsNextState(pr, myselfName, "console_"+myselfName, 
-	    			    	 		    		parg,false, true, null); 
-	    			    return;	
-	    			    //the control is given to the caller state
-	    			}
+	    	curT = Term.createTerm("cmd(move(\"forward\",SPEED,DURATION))");
+	    	if( currentMessage != null && currentMessage.msgId().equals("moveRover") && 
+	    		pengine.unify(curT, Term.createTerm("cmd(CMD)")) && 
+	    		pengine.unify(curT, Term.createTerm( currentMessage.msgContent() ) )){ 
+	    		//println("WARNING: variable substitution not yet fully implemented " ); 
+	    		{//actionseq
+	    		execUnity("rover","forward",0, 20,0); //rover: default namefor virtual robot		
+	    		it.unibo.custom.path.register( myself ,"forward", guardVars.get("DURATION")  );
+	    		};//actionseq
+	    	}
+	    	//onMsg 
+	    	setCurrentMsgFromStore(); 
+	    	curT = Term.createTerm("cmd(move(\"backward\",SPEED,DURATION))");
+	    	if( currentMessage != null && currentMessage.msgId().equals("moveRover") && 
+	    		pengine.unify(curT, Term.createTerm("cmd(CMD)")) && 
+	    		pengine.unify(curT, Term.createTerm( currentMessage.msgContent() ) )){ 
+	    		//println("WARNING: variable substitution not yet fully implemented " ); 
+	    		{//actionseq
+	    		execUnity("rover","backward",0, 20,0); //rover: default namefor virtual robot		
+	    		it.unibo.custom.path.register( myself ,"backward", guardVars.get("DURATION")  );
+	    		};//actionseq
+	    	}
+	    	//onMsg 
+	    	setCurrentMsgFromStore(); 
+	    	curT = Term.createTerm("cmd(move(\"stop\",SPEED,DURATION))");
+	    	if( currentMessage != null && currentMessage.msgId().equals("moveRover") && 
+	    		pengine.unify(curT, Term.createTerm("cmd(CMD)")) && 
+	    		pengine.unify(curT, Term.createTerm( currentMessage.msgContent() ) )){ 
+	    		//println("WARNING: variable substitution not yet fully implemented " ); 
+	    		{//actionseq
+	    		execUnity("rover","stop",750, 20,0); //rover: default namefor virtual robot		
+	    		it.unibo.custom.path.register( myself ,"stop", guardVars.get("DURATION")  );
+	    		};//actionseq
+	    	}
+	    	//onMsg 
+	    	setCurrentMsgFromStore(); 
+	    	curT = Term.createTerm("cmd(move(\"left\",SPEED,DURATION))");
+	    	if( currentMessage != null && currentMessage.msgId().equals("moveRover") && 
+	    		pengine.unify(curT, Term.createTerm("cmd(CMD)")) && 
+	    		pengine.unify(curT, Term.createTerm( currentMessage.msgContent() ) )){ 
+	    		//println("WARNING: variable substitution not yet fully implemented " ); 
+	    		{//actionseq
+	    		execUnity("rover","left",750, 20,0); //rover: default namefor virtual robot		
+	    		it.unibo.custom.path.register( myself ,"left", guardVars.get("DURATION")  );
+	    		};//actionseq
+	    	}
+	    	//onMsg 
+	    	setCurrentMsgFromStore(); 
+	    	curT = Term.createTerm("cmd(move(\"right\",SPEED,DURATION))");
+	    	if( currentMessage != null && currentMessage.msgId().equals("moveRover") && 
+	    		pengine.unify(curT, Term.createTerm("cmd(CMD)")) && 
+	    		pengine.unify(curT, Term.createTerm( currentMessage.msgContent() ) )){ 
+	    		//println("WARNING: variable substitution not yet fully implemented " ); 
+	    		{//actionseq
+	    		execUnity("rover","right",750, 20,0); //rover: default namefor virtual robot		
+	    		it.unibo.custom.path.register( myself ,"right", guardVars.get("DURATION")  );
+	    		};//actionseq
+	    	}
+	    	//onMsg 
+	    	setCurrentMsgFromStore(); 
+	    	curT = Term.createTerm("cmd(X)");
+	    	if( currentMessage != null && currentMessage.msgId().equals("moveRover") && 
+	    		pengine.unify(curT, Term.createTerm("cmd(CMD)")) && 
+	    		pengine.unify(curT, Term.createTerm( currentMessage.msgContent() ) )){ 
+	    		String parg = "X";
+	    		/* Print */
+	    		parg =  updateVars( Term.createTerm("cmd(CMD)"), 
+	    		                    Term.createTerm("cmd(X)"), 
+	    			    		  	Term.createTerm(currentMessage.msgContent()), parg);
+	    		if( parg != null ) println( parg );
 	    	}
 	    	repeatPlanNoTransition(pr,myselfName,"rover_"+myselfName,false,true);
 	    }catch(Exception e_execMove){  
@@ -134,54 +227,43 @@ public abstract class AbstractRover extends QActor {
 	    }
 	    };//execMove
 	    
-	    StateFun connectToUnity = () -> {	
+	    StateFun handleTout = () -> {	
 	    try{	
-	     PlanRepeat pr = PlanRepeat.setUp("connectToUnity",-1);
-	    	String myselfName = "connectToUnity";  
-	    	//onEvent 
-	    	setCurrentMsgFromStore(); 
-	    	curT = Term.createTerm("usercmd(robotgui(unityAddr(ADDR)))");
-	    	if( currentEvent != null && currentEvent.getEventId().equals("usercmd") && 
-	    		pengine.unify(curT, Term.createTerm("usercmd(CMD)")) && 
-	    		pengine.unify(curT, Term.createTerm( currentEvent.getMsg() ) )){ 
-	    			String parg = "ADDR";
-	    			/* Print */
-	    			parg =  updateVars( Term.createTerm("usercmd(CMD)"), 
-	    			                    Term.createTerm("usercmd(robotgui(unityAddr(ADDR)))"), 
-	    				    		  	Term.createTerm(currentEvent.getMsg()), parg);
-	    			if( parg != null ) println( parg );
-	    	}
-	    	if( (guardVars = QActorUtils.evalTheGuard(this, " !?unityOn" )) != null ){
-	    	temporaryStr = "\"UNITY already connected\"";
-	    	temporaryStr = QActorUtils.substituteVars(guardVars,temporaryStr);
+	     PlanRepeat pr = PlanRepeat.setUp("handleTout",-1);
+	    	String myselfName = "handleTout";  
+	    	temporaryStr = "\"Time out\"";
 	    	println( temporaryStr );  
-	    	}
-	    	//switchTo doconnectToUnity
-	        switchToPlanAsNextState(pr, myselfName, "rover_"+myselfName, 
-	              "doconnectToUnity",false, true, " not !?unityOn" 
-	              ); 
-	    }catch(Exception e_connectToUnity){  
-	    	 println( getName() + " plan=connectToUnity WARNING:" + e_connectToUnity.getMessage() );
-	    	 QActorContext.terminateQActorSystem(this); 
-	    }
-	    };//connectToUnity
-	    
-	    StateFun doconnectToUnity = () -> {	
-	    try{	
-	     PlanRepeat pr = PlanRepeat.setUp("doconnectToUnity",-1);
-	    	String myselfName = "doconnectToUnity";  
-	    	initUnityConnection( "192.168.203.130" );  
-	    	createSimulatedActor("rover", "Prefabs/CustomActor"); 
-	    	execUnity("rover","backward",800, 70,0); //rover: default namefor virtual robot		
-	    	execUnity("rover","right",1000, 70,0); //rover: default namefor virtual robot		
-	    	temporaryStr = "unityOn";
-	    	addRule( temporaryStr );  
 	    	repeatPlanNoTransition(pr,myselfName,"rover_"+myselfName,false,true);
-	    }catch(Exception e_doconnectToUnity){  
-	    	 println( getName() + " plan=doconnectToUnity WARNING:" + e_doconnectToUnity.getMessage() );
+	    }catch(Exception e_handleTout){  
+	    	 println( getName() + " plan=handleTout WARNING:" + e_handleTout.getMessage() );
 	    	 QActorContext.terminateQActorSystem(this); 
 	    }
-	    };//doconnectToUnity
+	    };//handleTout
+	    
+	    StateFun handleAlarm = () -> {	
+	    try{	
+	     PlanRepeat pr = PlanRepeat.setUp("handleAlarm",-1);
+	    	String myselfName = "handleAlarm";  
+	    	execUnity("rover","stop",0, 40,0); //rover: default namefor virtual robot		
+	    	repeatPlanNoTransition(pr,myselfName,"rover_"+myselfName,false,true);
+	    }catch(Exception e_handleAlarm){  
+	    	 println( getName() + " plan=handleAlarm WARNING:" + e_handleAlarm.getMessage() );
+	    	 QActorContext.terminateQActorSystem(this); 
+	    }
+	    };//handleAlarm
+	    
+	    StateFun endOfMove = () -> {	
+	    try{	
+	     PlanRepeat pr = PlanRepeat.setUp("endOfMove",-1);
+	    	String myselfName = "endOfMove";  
+	    	temporaryStr = "\"endOfMove\"";
+	    	println( temporaryStr );  
+	    	repeatPlanNoTransition(pr,myselfName,"rover_"+myselfName,false,true);
+	    }catch(Exception e_endOfMove){  
+	    	 println( getName() + " plan=endOfMove WARNING:" + e_endOfMove.getMessage() );
+	    	 QActorContext.terminateQActorSystem(this); 
+	    }
+	    };//endOfMove
 	    
 	    protected void initSensorSystem(){
 	    	//doing nothing in a QActor

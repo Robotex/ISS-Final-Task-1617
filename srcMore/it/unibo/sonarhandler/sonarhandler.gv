@@ -1,0 +1,27 @@
+/*
+*
+* A GraphViz DOT FSM description 
+* Please use a GraphViz visualizer (like http://www.webgraphviz.com)
+*  
+*/
+
+digraph finite_state_machine {
+	rankdir=LR
+	size="8,5"
+	
+	init [ color = red ][ fontcolor = red ][ penwidth = 3 ]
+	checkDistance [ color = black ][ fontcolor = black ][ penwidth = 3 ]
+	handleAlarm [ color = black ][ fontcolor = black ][ penwidth = 3 ]
+	handleTout [ color = black ][ fontcolor = black ][ penwidth = 3 ]
+	processSonarData [ color = black ][ fontcolor = black ][ penwidth = 3 ]
+	handleEvents [ color = black ][ fontcolor = black ][ penwidth = 3 ]
+	setStartDistance [ color = black ][ fontcolor = black ][ penwidth = 3 ]
+	
+	processSonarData -> checkDistance [ label = "switch" ][ color = red ][ fontcolor = red ][ dir = both ]
+	handleEvents -> handleAlarm [ label = "alarm" ][ color = red ][ fontcolor = red ][ dir = both ]
+	init -> handleEvents [ label = "switch" ][ color = black ][ fontcolor = black ]
+	handleEvents -> processSonarData [ label = "sonar" ][ color = red ][ fontcolor = red ][ dir = both ]
+	handleEvents -> handleTout [ label = "timeout(60000)" ][ color = green ][ fontcolor = green ][ dir = both ]
+	handleEvents -> handleEvents [ label = "repeat "][ style = dashed ][ color = blue ][ fontcolor = blue ]
+	handleEvents -> setStartDistance [ label = "startDistance" ][ color = red ][ fontcolor = red ][ dir = both ]
+}
