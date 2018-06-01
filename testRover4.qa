@@ -338,11 +338,10 @@ QActor rovermind context ctxRover4 {
 	Plan stage1_obstacleAvoidingManagement resumeLastPlan [
 		println("obstacleAvoidingManagement");
 		addRule run;
-		forward rover -m moveRover : cmd(move("stop",20,0));
-		delay 1500
+		forward rover -m moveRover : cmd(move("stop",20,0))
 	]
 	transition
-		whenTime 500 -> stage1_evaluateDetection,
+		whenTime 2000 -> stage1_evaluateDetection,
 		whenEvent alarm->handleAlarm
 		
 	Plan stage1_evaluateDetection [
