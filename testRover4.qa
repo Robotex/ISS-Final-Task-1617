@@ -498,6 +498,7 @@ QActor console context ctxRover4 {
 			onEvent inputcmd : usercmd(executeInput(connectToUnity(X))) -> emit unityAddr : unityAddr(X) ;
 			onEvent inputcmd : usercmd(executeInput(setStartDistance(X))) -> emit startDistance : startDistance(X);
 			onEvent inputcmd : usercmd(executeInput(move(X,Y,Z))) -> forward rover -m moveRover : cmd(move(X,Y,Z));
+			onEvent inputcmd : usercmd(executeInput(startReverse)) -> javaRun it.unibo.custom.path.startReverse();
 			onEvent inputcmd : usercmd(executeInput(X)) -> println(X)
 		]
 		

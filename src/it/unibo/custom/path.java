@@ -1,13 +1,14 @@
 package it.unibo.custom;
 
 
-
+import it.unibo.qactors.QActorContext;
 import it.unibo.qactors.QActorUtils;
 import it.unibo.qactors.akka.QActor;
 import java.util.Stack;
 
 import alice.tuprolog.Int;
 import alice.tuprolog.Prolog;
+import alice.tuprolog.Term;
 import cli.System.TimeSpan;
 
 import java.util.Queue;
@@ -41,7 +42,11 @@ public class path {
 			return move + "("+time+")";
 		}
 		public String formatAsMessage(Prolog prologEngine){
-			return QActorUtils.unifyMsgContent(prologEngine, this.move +"(TIME)", this.move + "(" + this.time + ")", null ).toString();			
+			//return QActorUtils.unifyMsgContent(prologEngine, this.move +"(TIME)", this.move + "(" + this.time + ")", null ).toString();	
+			String parg="cmd(move(\"" + this.move + "\",20," + this.actualDuration + "))";
+			//parg = updateVars(Term.createTerm("usercmd(executeInput(X))"),  Term.createTerm("usercmd(executeInput(move(X,Y,Z)))"), 
+  			//		Term.createTerm(currentEvent.getMsg()), parg);
+			return parg;
 		}
 	}
 	
@@ -72,7 +77,7 @@ public class path {
 				Action curraction = iterator.next();
 				System.out.println("sending:" + curraction.toString());
 				try {					
-					myself.sendMsg(curraction.move, "rover", "dispatch", curraction.formatAsMessage(myself.getPrologEngine()));
+					myself.sendMsg("moveRover", "rover", QActorContext.dispatch, curraction.formatAsMessage(myself.getPrologEngine()));
 					Thread.sleep(Integer.parseInt(curraction.time) + 2000);
 				} catch (Exception e) {	}
 			}	
