@@ -158,8 +158,8 @@ QActor sonarhandler context ctxRover4 {
 	   				[ not !? adjustingDistance ] {
 	   					emit alarm : alarm(sonar2); // FERMATI!!!
 	   					forward rover -m moveRover : cmd(move("left",40,1000));
-						[ !? isfarther(sonar2) ] forward rover -m moveRover : cmd(move("forward",20,0))
-							else forward rover -m moveRover : cmd(move("backward",20,0));
+						[ !? isfarther(sonar2) ] forward rover -m moveRover : cmd(move("forward",20,0));
+						[ !? isnearer(sonar2) ] forward rover -m moveRover : cmd(move("backward",20,0));
 						addRule adjustingDistance;
 						println("Started distance adjustement...")
 	   				}
@@ -202,8 +202,8 @@ QActor rover context ctxRover4 {
 		transition 
 			whenTime 60000 -> handleTout,
 			whenEvent unityAddr -> connectToUnity,
-			whenMsg moveRover -> execMove,
-			whenEvent alarm -> handleAlarm
+			whenEvent alarm -> handleAlarm,
+			whenMsg moveRover -> execMove
 		finally repeatPlan
 		
 	Plan connectToUnity resumeLastPlan 
@@ -267,6 +267,7 @@ QActor rover context ctxRover4 {
 		
 	Plan handleAlarm resumeLastPlan
 		actions [
+			println("[rover] Alarm detected! Halting");
 			stop 40 time (0) 
 		]
 		
@@ -341,14 +342,29 @@ QActor rovermind context ctxRover4 {
 		forward rover -m moveRover : cmd(move("stop",20,0))
 	]
 	transition
-		whenTime 2000 -> stage1_evaluateDetection,
+		whenTime 1500 -> stage1_evaluateDetection,
 		whenEvent alarm->handleAlarm
 		
 	Plan stage1_evaluateDetection [
 		println("Evaluating: done") 
 	]
 	transition
-		whenTime 500 -> stage1
+		whenTime 500 -> stage1,
+		whenEvent alarm->handleAlarm,
+		whenEvent sonarDetect->stage1_obstacleAvoidingManagement2ndPass
+		
+	Plan stage1_obstacleAvoidingManagement2ndPass resumeLastPlan [
+		println("obstacleAvoidingManagement2ndPass")
+	]
+	transition
+		whenTime 1000 -> stage1_evaluateDetection2ndPass,
+		whenEvent alarm->handleAlarm
+		
+	Plan stage1_evaluateDetection2ndPass [
+		println("Evaluating 2nd pass: done") 
+	]
+	transition
+		whenTime 500 -> stage1,
 		whenEvent alarm->handleAlarm,
 		whenEvent sonarDetect->stage1_managingFixedObject_loop_begin
 	
