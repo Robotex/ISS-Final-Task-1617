@@ -152,8 +152,11 @@ QActor sonarhandler context ctxRover4 {
 	   					forward rover -m moveRover : cmd(move("stop",40,0));
 	   					println("Distance from sonar2 reached.")
 	   				} else {
-	   					emit alarm : alarm(sonar2) // FERMATI!!!
-	   				}
+	   					emit alarm : alarm(sonar2); // FERMATI!!!
+	   					forward rover -m moveRover : cmd(move("left",40,1000))
+	   				};
+	   				emit alarm : alarm(finish);
+	   				endQActor "[sonarhandler] Finished! Shutdown."
 	   			} else {
 	   				[ not !? adjustingDistance ] {
 	   					emit alarm : alarm(sonar2); // FERMATI!!!
@@ -268,7 +271,8 @@ QActor rover context ctxRover4 {
 	Plan handleAlarm resumeLastPlan
 		actions [
 			println("[rover] Alarm detected! Halting");
-			stop 40 time (0) 
+			stop 40 time (0);
+			onEvent alarm : alarm(finish) -> endQActor "[rover] Finish alarm detected! Shutdown."
 		]
 		
 	Plan endOfMove resumeLastPlan [ println("endOfMove") ]
@@ -452,7 +456,8 @@ QActor rovermind context ctxRover4 {
 			onEvent alarm : alarm(fire) -> {
 				addRule manual;
 				println("[rovermind] Switching to manual control plan...")
-			}
+			};
+			onEvent alarm : alarm(finish) -> endQActor "[rovermind] Finish alarm detected! Shutdown."
 		]
 		switchTo [?? manual] stage2
 	
@@ -475,7 +480,8 @@ QActor console context ctxRover4 {
 			whenTime 60000 -> handleTout,
 			whenEvent cmd -> handleCmd,
 			whenEvent inputcmd -> handleInputCmd,
-			whenEvent usercmd -> handleUserCmd
+			whenEvent usercmd -> handleUserCmd,
+			whenEvent alarm -> handleAlarm
 		finally repeatPlan
 		
 	Plan handleCmd resumeLastPlan
@@ -500,6 +506,11 @@ QActor console context ctxRover4 {
 			onEvent inputcmd : usercmd(executeInput(move(X,Y,Z))) -> forward rover -m moveRover : cmd(move(X,Y,Z));
 			onEvent inputcmd : usercmd(executeInput(startReverse)) -> javaRun it.unibo.custom.path.startReverse();
 			onEvent inputcmd : usercmd(executeInput(X)) -> println(X)
+		]
+		
+	Plan handleAlarm resumeLastPlan
+		actions [
+			onEvent alarm : alarm(finish) -> endQActor "[console] Finish alarm detected! Shutdown."
 		]
 		
 	Plan handleTout resumeLastPlan
