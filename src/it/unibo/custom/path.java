@@ -41,6 +41,15 @@ public class path {
 		public String toString(){
 			return move + "("+time+")";
 		}
+		public Action reverse() {
+			Action reversed = this;
+			if (this.move == "left")
+				reversed.move = "right";
+			else if (this.move == "right")
+				reversed.move = "left";
+			return reversed;
+		}
+		
 		public String formatAsMessage(Prolog prologEngine){
 			//return QActorUtils.unifyMsgContent(prologEngine, this.move +"(TIME)", this.move + "(" + this.time + ")", null ).toString();	
 			String parg="cmd(move(\"" + this.move + "\",20," + this.actualDuration + "))";
@@ -54,10 +63,11 @@ public class path {
 	public static void register(QActor myself, String move, String time) {
 		Action action = new Action(move, time);
 		
-		if(action.move == "stop" && stack.size() > 0){
-			Action lastAction = stack.get(stack.size() - 1);
+		if (!stack.isEmpty()) {
+			Action lastAction = stack.peek();
 			lastAction.actualDuration = System.currentTimeMillis() - lastAction.timeStamp; 
 		}
+
 		stack.add(action);		
 	}
 	public static void register(QActor myself, String move, String time, String timeout) {
@@ -73,12 +83,18 @@ public class path {
 		System.out.println("starting reverse" );
 		Iterator<Action> iterator = stack.iterator();
 		Runnable reverse = () -> { 
+			try {	
+				myself.sendMsg("moveRover", "rover", QActorContext.dispatch, "cmd(move(\"right\",20,750))");
+				myself.sendMsg("moveRover", "rover", QActorContext.dispatch, "cmd(move(\"right\",20,750))");
+				Thread.sleep(1500);
+			} catch (Exception e) {	}
+			
 			while(iterator.hasNext()){
-				Action curraction = iterator.next();
+				Action curraction = iterator.next().reverse();
 				System.out.println("sending:" + curraction.toString());
 				try {					
 					myself.sendMsg("moveRover", "rover", QActorContext.dispatch, curraction.formatAsMessage(myself.getPrologEngine()));
-					Thread.sleep(Integer.parseInt(curraction.time) + 2000);
+					Thread.sleep(curraction.actualDuration);
 				} catch (Exception e) {	}
 			}	
 		};
