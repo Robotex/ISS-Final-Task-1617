@@ -10,6 +10,7 @@ Event alarm : alarm(X)
 Event unityAddr : unityAddr(X)
 Event startDistance : startDistance(X)
 Event sonarDistance : sonarDistance( SONARID, DISTANCE )
+Event robotControl : robotControl(X)
 
 Dispatch moveRover : cmd( CMD )
 
@@ -99,7 +100,8 @@ QActor sonarhandler context ctxRover4 {
 			whenTime 60000 -> handleTout,
 	    	whenEvent sonar -> processSonarData,
 	    	whenEvent startDistance -> setStartDistance,
-	    	whenEvent alarm -> handleAlarm
+	    	whenEvent alarm -> handleAlarm,
+	    	whenEvent robotControl -> handleControl
 	   	finally repeatPlan
 		
 	Plan setStartDistance resumeLastPlan
@@ -152,14 +154,14 @@ QActor sonarhandler context ctxRover4 {
 	   					forward rover -m moveRover : cmd(move("stop",40,0));
 	   					println("Distance from sonar2 reached.")
 	   				} else {
-	   					emit alarm : alarm(sonar2); // FERMATI!!!
+	   					emit robotControl : robotControl(sonar2); // FERMATI!!!
 	   					forward rover -m moveRover : cmd(move("left",40,1000))
 	   				};
-	   				emit alarm : alarm(finish);
+	   				emit robotControl : robotControl(finish);
 	   				endQActor "[sonarhandler] Finished! Shutdown."
 	   			} else {
 	   				[ not !? adjustingDistance ] {
-	   					emit alarm : alarm(sonar2); // FERMATI!!!
+	   					emit robotControl : robotControl(sonar2); // FERMATI!!!
 	   					forward rover -m moveRover : cmd(move("left",40,1000));
 						[ !? isfarther(sonar2) ] forward rover -m moveRover : cmd(move("forward",20,0));
 						[ !? isnearer(sonar2) ] forward rover -m moveRover : cmd(move("backward",20,0));
@@ -188,6 +190,11 @@ QActor sonarhandler context ctxRover4 {
    				[ ?? adjustingDistance] println("[sonarhandler] detected fire alarm while I had control, cleared out.")
    			}
    		]
+   		
+   	Plan handleControl resumeLastPlan
+   		actions [
+   			onEvent robotControl : robotControl(finish) -> endQActor "[sonarhandler] Finish event detected! Shutdown."
+   		]
 }
 
 QActor rover context ctxRover4 {
@@ -206,6 +213,7 @@ QActor rover context ctxRover4 {
 			whenTime 60000 -> handleTout,
 			whenEvent unityAddr -> connectToUnity,
 			whenEvent alarm -> handleAlarm,
+			whenEvent robotControl -> handleControl,
 			whenMsg moveRover -> execMove
 		finally repeatPlan
 		
@@ -224,26 +232,16 @@ QActor rover context ctxRover4 {
 			
 	Plan execMove resumeLastPlan
 		actions [
-			onMsg moveRover : cmd(move("forward",SPEED,DURATION)) -> {
-				onward 20 time (0);
-				javaRun it.unibo.custom.path.register("forward", DURATION)				
-			};
-			onMsg moveRover : cmd(move("backward",SPEED,DURATION)) -> {
-				backwards 20 time (0);
-				javaRun it.unibo.custom.path.register("backward", DURATION)	
-			};
-			onMsg moveRover : cmd(move("stop",SPEED,DURATION)) -> {
-				stop 20 time (750);
-				javaRun it.unibo.custom.path.register("stop", DURATION)	
-			};
-			onMsg moveRover : cmd(move("left",SPEED,DURATION)) -> {
-				left 20 time (750);
-				javaRun it.unibo.custom.path.register("left", DURATION)
-			};
-			onMsg moveRover : cmd(move("right",SPEED,DURATION)) -> {
-				right 20 time (750);
-				javaRun it.unibo.custom.path.register("right", DURATION)				
-			};
+			onMsg moveRover : cmd(move("forward",SPEED,DURATION)) -> onward 20 time (0);
+			onMsg moveRover : cmd(move("forward",SPEED,DURATION)) -> javaRun it.unibo.custom.path.register("forward", DURATION);
+			onMsg moveRover : cmd(move("backward",SPEED,DURATION)) -> backwards 20 time (0);
+			onMsg moveRover : cmd(move("backward",SPEED,DURATION)) -> javaRun it.unibo.custom.path.register("backward", DURATION);
+			onMsg moveRover : cmd(move("stop",SPEED,DURATION)) -> stop 20 time (750);
+			onMsg moveRover : cmd(move("stop",SPEED,DURATION)) -> javaRun it.unibo.custom.path.register("stop", DURATION);
+			onMsg moveRover : cmd(move("left",SPEED,DURATION)) -> left 20 time (750);
+			onMsg moveRover : cmd(move("left",SPEED,DURATION)) -> javaRun it.unibo.custom.path.register("left", DURATION);
+			onMsg moveRover : cmd(move("right",SPEED,DURATION)) -> right 20 time (750);
+			onMsg moveRover : cmd(move("right",SPEED,DURATION)) -> javaRun it.unibo.custom.path.register("right", DURATION);
 			
 			onMsg moveRover : cmd(X) -> println(X)
 		]
@@ -271,8 +269,14 @@ QActor rover context ctxRover4 {
 	Plan handleAlarm resumeLastPlan
 		actions [
 			println("[rover] Alarm detected! Halting");
+			stop 40 time (0)
+		]
+		
+	Plan handleControl resumeLastPlan
+		actions [
+			println("[rover] External control event! Halting");
 			stop 40 time (0);
-			onEvent alarm : alarm(finish) -> endQActor "[rover] Finish alarm detected! Shutdown."
+			onEvent robotControl : robotControl(finish) -> endQActor "[rover] Finish event detected! Shutdown."
 		]
 		
 	Plan endOfMove resumeLastPlan [ println("endOfMove") ]
@@ -320,6 +324,7 @@ QActor rovermind context ctxRover4 {
 	]
 	transition stopAfter 25000
 		whenEvent alarm-> handleAlarm,
+		whenEvent robotControl -> handleControl,
 		whenEvent sonarDetect -> stage1_obstacleAvoidingManagement //SE QUESTO SCATTA: fixed or dynamic
 
 	finally repeatPlan
@@ -388,7 +393,8 @@ QActor rovermind context ctxRover4 {
 	]
 	transition 
 		whenTime 1000 -> stage1_managingFixedObject_loop_firstRotation,
-		whenEvent alarm -> handleAlarm
+		whenEvent alarm -> handleAlarm,
+		whenEvent robotControl -> handleControl
 	
 	Plan stage1_managingFixedObject_loop_firstRotation [
 		
@@ -404,7 +410,8 @@ QActor rovermind context ctxRover4 {
 	transition
 		whenTime 2000 -> stage1_managingFixedObject_endloop,
 		whenEvent alarm->handleAlarm,
-		whenEvent [not !? leftEdge] sonarDetect->stage1_managingFixedObject_loop_edgeDetected
+		whenEvent [not !? leftEdge] sonarDetect->stage1_managingFixedObject_loop_edgeDetected,
+		whenEvent robotControl -> handleControl
 	finally repeatPlan
 	
 	Plan stage1_managingFixedObject_loop_edgeDetected [
@@ -425,7 +432,8 @@ QActor rovermind context ctxRover4 {
 	]
 	transition
 		whenTime 1000 -> stage1_managingFixedObject_endloop,
-		whenEvent alarm -> handleAlarm
+		whenEvent alarm -> handleAlarm,
+		whenEvent robotControl -> handleControl
 	
 	Plan stage1_managingFixedObject_endloop[
 		
@@ -447,8 +455,8 @@ QActor rovermind context ctxRover4 {
 		actions []
 		transition
 			whenTime 60000 -> handleTout,
-			whenEvent sonarDetect -> stage1_obstacleAvoidingManagement //SE QUESTO SCATTA: fixed or dynamic
-	
+			whenEvent sonarDetect -> stage1_obstacleAvoidingManagement, //SE QUESTO SCATTA: fixed or dynamic
+			whenEvent robotControl -> handleControl
 	Plan handleAlarm
 		actions [
 			printCurrentEvent;
@@ -456,10 +464,16 @@ QActor rovermind context ctxRover4 {
 			onEvent alarm : alarm(fire) -> {
 				addRule manual;
 				println("[rovermind] Switching to manual control plan...")
-			};
-			onEvent alarm : alarm(finish) -> endQActor "[rovermind] Finish alarm detected! Shutdown."
+			}
 		]
 		switchTo [?? manual] stage2
+		
+	Plan handleControl resumeLastPlan
+		actions [
+			printCurrentEvent;
+			println("[rovermind] External control event! Halting");
+			onEvent robotControl : robotControl(finish) -> endQActor "[rovermind] Finish event detected! Shutdown."
+		]
 	
 	Plan handleTout resumeLastPlan
 		actions []
@@ -481,7 +495,7 @@ QActor console context ctxRover4 {
 			whenEvent cmd -> handleCmd,
 			whenEvent inputcmd -> handleInputCmd,
 			whenEvent usercmd -> handleUserCmd,
-			whenEvent alarm -> handleAlarm
+			whenEvent robotControl -> handleControl
 		finally repeatPlan
 		
 	Plan handleCmd resumeLastPlan
@@ -508,9 +522,9 @@ QActor console context ctxRover4 {
 			onEvent inputcmd : usercmd(executeInput(X)) -> println(X)
 		]
 		
-	Plan handleAlarm resumeLastPlan
+	Plan handleControl resumeLastPlan
 		actions [
-			onEvent alarm : alarm(finish) -> endQActor "[console] Finish alarm detected! Shutdown."
+			onEvent robotControl : robotControl(finish) -> endQActor "[console] Finish alarm detected! Shutdown."
 		]
 		
 	Plan handleTout resumeLastPlan
