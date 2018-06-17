@@ -233,15 +233,20 @@ QActor rover context ctxRover4 {
 	Plan execMove resumeLastPlan
 		actions [
 			onMsg moveRover : cmd(move("forward",SPEED,DURATION)) -> onward 20 time (0);
-			onMsg moveRover : cmd(move("forward",SPEED,DURATION)) -> javaRun it.unibo.custom.path.register("forward", DURATION);
+			onMsg moveRover : cmd(move("forward",SPEED,DURATION,REGISTER)) -> onward 20 time (0);
+			onMsg moveRover : cmd(move("forward",SPEED,DURATION,1)) -> javaRun it.unibo.custom.path.register("forward", DURATION);
 			onMsg moveRover : cmd(move("backward",SPEED,DURATION)) -> backwards 20 time (0);
-			onMsg moveRover : cmd(move("backward",SPEED,DURATION)) -> javaRun it.unibo.custom.path.register("backward", DURATION);
+			onMsg moveRover : cmd(move("backward",SPEED,DURATION,REGISTER)) -> backwards 20 time (0);
+			onMsg moveRover : cmd(move("backward",SPEED,DURATION,1)) -> javaRun it.unibo.custom.path.register("backward", DURATION);
 			onMsg moveRover : cmd(move("stop",SPEED,DURATION)) -> stop 20 time (750);
-			onMsg moveRover : cmd(move("stop",SPEED,DURATION)) -> javaRun it.unibo.custom.path.register("stop", DURATION);
+			onMsg moveRover : cmd(move("stop",SPEED,DURATION,REGISTER)) -> stop 20 time (750);
+			onMsg moveRover : cmd(move("stop",SPEED,DURATION,1)) -> javaRun it.unibo.custom.path.register("stop", DURATION);
 			onMsg moveRover : cmd(move("left",SPEED,DURATION)) -> left 20 time (750);
-			onMsg moveRover : cmd(move("left",SPEED,DURATION)) -> javaRun it.unibo.custom.path.register("left", DURATION);
+			onMsg moveRover : cmd(move("left",SPEED,DURATION,REGISTER)) -> left 20 time (750);
+			onMsg moveRover : cmd(move("left",SPEED,DURATION,1)) -> javaRun it.unibo.custom.path.register("left", DURATION);
 			onMsg moveRover : cmd(move("right",SPEED,DURATION)) -> right 20 time (750);
-			onMsg moveRover : cmd(move("right",SPEED,DURATION)) -> javaRun it.unibo.custom.path.register("right", DURATION);
+			onMsg moveRover : cmd(move("right",SPEED,DURATION,REGISTER)) -> right 20 time (750);
+			onMsg moveRover : cmd(move("right",SPEED,DURATION,1)) -> javaRun it.unibo.custom.path.register("right", DURATION);
 			
 			onMsg moveRover : cmd(X) -> println(X)
 		]
@@ -319,7 +324,7 @@ QActor rovermind context ctxRover4 {
 	Plan stage1[
 		[?? run]{ 
 			println("Going forward with stage1");
-			forward rover -m moveRover : cmd(move("forward",20,0))
+			forward rover -m moveRover : cmd(move("forward",20,0,1))
 		}
 	]
 	transition stopAfter 25000
@@ -348,7 +353,7 @@ QActor rovermind context ctxRover4 {
 	Plan stage1_obstacleAvoidingManagement resumeLastPlan [
 		println("obstacleAvoidingManagement");
 		addRule run;
-		forward rover -m moveRover : cmd(move("stop",20,0))
+		forward rover -m moveRover : cmd(move("stop",20,0,1))
 	]
 	transition
 		whenTime 1500 -> stage1_evaluateDetection,
@@ -389,7 +394,7 @@ QActor rovermind context ctxRover4 {
 	 */	
 	Plan stage1_managingFixedObject_loop_begin[
 		onEvent sonarDetect:sonarDetect(NAME) ->println(detected(NAME));
-		forward rover -m moveRover : cmd(move("backward",20,1000))
+		forward rover -m moveRover : cmd(move("backward",20,1000,1))
 	]
 	transition 
 		whenTime 1000 -> stage1_managingFixedObject_loop_firstRotation,
@@ -398,14 +403,14 @@ QActor rovermind context ctxRover4 {
 	
 	Plan stage1_managingFixedObject_loop_firstRotation [
 		
-		[not !? leftEdge] forward rover -m moveRover : cmd(move("left",40,750))
-		else forward rover -m moveRover : cmd(move("right",40,750))
+		[not !? leftEdge] forward rover -m moveRover : cmd(move("left",40,750,1))
+		else forward rover -m moveRover : cmd(move("right",40,750,1))
 	]
 	switchTo stage1_managingFixedObject_loop_avoiding
 	
 	Plan stage1_managingFixedObject_loop_avoiding [
 		println("Avoiding fixed obstacle");
-		forward rover -m moveRover : cmd(move("forward",20,0))
+		forward rover -m moveRover : cmd(move("forward",20,0,1))
 	]
 	transition
 		whenTime 2000 -> stage1_managingFixedObject_endloop,
@@ -416,7 +421,7 @@ QActor rovermind context ctxRover4 {
 	
 	Plan stage1_managingFixedObject_loop_edgeDetected [
 		println("detecting left edge");
-		forward rover -m moveRover : cmd(move("stop",40,0));
+		forward rover -m moveRover : cmd(move("stop",40,0,1));
 		addRule edgeDetected;
 		[not !? leftEdge]
 			addRule leftEdge
@@ -428,7 +433,7 @@ QActor rovermind context ctxRover4 {
 		whenEvent alarm -> handleAlarm
 	
 	Plan stage1_managingFixedObject_loop_edgeDetected_backward [
-		forward rover -m moveRover : cmd(move("backward",20,1000))
+		forward rover -m moveRover : cmd(move("backward",20,1000,1))
 	]
 	transition
 		whenTime 1000 -> stage1_managingFixedObject_endloop,
@@ -438,14 +443,14 @@ QActor rovermind context ctxRover4 {
 	Plan stage1_managingFixedObject_endloop[
 		
 		[?? edgeDetected] { //QUESTO SI VERIFICA SOLO QUANDO SI VA A SINISTRA E SI TROVA UN LEFTEDGE
-			[!? leftEdge]	forward rover -m moveRover : cmd(move("right",40,750))
-			else forward rover -m moveRover : cmd(move("left",40,750))
+			[!? leftEdge]	forward rover -m moveRover : cmd(move("right",40,750,1))
+			else forward rover -m moveRover : cmd(move("left",40,750,1))
 			
 			
 		}
 		else {
-			[not !? leftEdge] forward rover -m moveRover : cmd(move("right",40,750))
-			else forward rover -m moveRover : cmd(move("left",40,750))
+			[not !? leftEdge] forward rover -m moveRover : cmd(move("right",40,750,1))
+			else forward rover -m moveRover : cmd(move("left",40,750,1))
 		}
 		
 	]
@@ -457,6 +462,7 @@ QActor rovermind context ctxRover4 {
 			whenTime 60000 -> handleTout,
 			whenEvent sonarDetect -> stage1_obstacleAvoidingManagement, //SE QUESTO SCATTA: fixed or dynamic
 			whenEvent robotControl -> handleControl
+	
 	Plan handleAlarm
 		actions [
 			printCurrentEvent;
@@ -505,11 +511,11 @@ QActor console context ctxRover4 {
 	
 	Plan handleUserCmd resumeLastPlan
 		actions [
-			onEvent usercmd : usercmd(robotgui(w(X))) -> forward rover -m moveRover : cmd(move("forward", 40, 0));
-			onEvent usercmd : usercmd(robotgui(a(X))) -> forward rover -m moveRover : cmd(move("left", 50, 750));
-			onEvent usercmd : usercmd(robotgui(s(X))) -> forward rover -m moveRover : cmd(move("backward", 40, 0));
-			onEvent usercmd : usercmd(robotgui(d(X))) -> forward rover -m moveRover : cmd(move("right", 50, 750));
-			onEvent usercmd : usercmd(robotgui(h(X))) -> forward rover -m moveRover : cmd(move("stop", 40, 0));
+			onEvent usercmd : usercmd(robotgui(w(X))) -> forward rover -m moveRover : cmd(move("forward", 40, 0, 1));
+			onEvent usercmd : usercmd(robotgui(a(X))) -> forward rover -m moveRover : cmd(move("left", 50, 750, 1));
+			onEvent usercmd : usercmd(robotgui(s(X))) -> forward rover -m moveRover : cmd(move("backward", 40, 0, 1));
+			onEvent usercmd : usercmd(robotgui(d(X))) -> forward rover -m moveRover : cmd(move("right", 50, 750, 1));
+			onEvent usercmd : usercmd(robotgui(h(X))) -> forward rover -m moveRover : cmd(move("stop", 40, 0, 1));
 			onEvent usercmd : usercmd(robotgui(X)) -> println(X)
 		]
 	
@@ -518,7 +524,7 @@ QActor console context ctxRover4 {
 			onEvent inputcmd : usercmd(executeInput(connectToUnity(X))) -> emit unityAddr : unityAddr(X) ;
 			onEvent inputcmd : usercmd(executeInput(setStartDistance(X))) -> emit startDistance : startDistance(X);
 			onEvent inputcmd : usercmd(executeInput(move(X,Y,Z))) -> forward rover -m moveRover : cmd(move(X,Y,Z));
-			onEvent inputcmd : usercmd(executeInput(startReverse)) -> javaRun it.unibo.custom.path.startReverse();
+			onEvent inputcmd : usercmd(executeInput(startReverse(X))) -> javaRun it.unibo.custom.path.startReverse();
 			onEvent inputcmd : usercmd(executeInput(X)) -> println(X)
 		]
 		
