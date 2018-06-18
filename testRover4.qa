@@ -462,24 +462,25 @@ QActor rovermind context ctxRover4 {
 			whenTime 60000 -> handleTout,
 			whenEvent sonarDetect -> stage1_obstacleAvoidingManagement, //SE QUESTO SCATTA: fixed or dynamic
 			whenEvent robotControl -> handleControl
+		finally repeatPlan
 	
 	Plan handleAlarm
 		actions [
 			printCurrentEvent;
-			onEvent alarm : alarm(X) -> println("[rovermind] Alarm detected! Halted execution.");
-			onEvent alarm : alarm(fire) -> {
-				addRule manual;
-				println("[rovermind] Switching to manual control plan...")
-			}
+			onEvent alarm : alarm(X) -> println("[rovermind] Alarm detected! Halted execution.")
 		]
-		switchTo [?? manual] stage2
 		
 	Plan handleControl resumeLastPlan
 		actions [
 			printCurrentEvent;
 			println("[rovermind] External control event! Halting");
-			onEvent robotControl : robotControl(finish) -> endQActor "[rovermind] Finish event detected! Shutdown."
+			onEvent robotControl : robotControl(finish) -> endQActor "[rovermind] Finish event detected! Shutdown.";
+			onEvent robotControl : robotControl(manual) -> {
+				addRule manual;
+				println("[rovermind] Switching to manual control plan...")
+			}
 		]
+		switchTo [!? manual] stage2
 	
 	Plan handleTout resumeLastPlan
 		actions []
@@ -500,13 +501,19 @@ QActor console context ctxRover4 {
 			whenTime 60000 -> handleTout,
 			whenEvent cmd -> handleCmd,
 			whenEvent inputcmd -> handleInputCmd,
-			whenEvent usercmd -> handleUserCmd,
+			whenEvent [!? started] usercmd -> handleUserCmd,
 			whenEvent robotControl -> handleControl
 		finally repeatPlan
 		
 	Plan handleCmd resumeLastPlan
 		actions [
-			onEvent cmd : cmd(start) -> forward rovermind -m moveRover : cmd(start) 
+			onEvent cmd : cmd(start) -> {
+				addRule started;
+				forward rovermind -m moveRover : cmd(start)
+			};
+			onEvent cmd : cmd("stop") -> {
+				emit robotControl : robotControl(manual)
+			}
 		]
 	
 	Plan handleUserCmd resumeLastPlan
