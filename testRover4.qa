@@ -130,20 +130,22 @@ QActor sonarhandler context ctxRover4 {
    		// Siamo davanti al sonar1 ?
    		onEvent sonar : sonar(sonar1,TARGET,DISTANCE) -> {
    			//println("On sonar1 line");
-   			[ !? isatdistance(sonar1) ] { // Siamo alla distanza corretta? 
-   				//println("On right distance");
-   				[ ?? adjustingDistance ] { // Se il rover si sta muovendo gestito dal sonar, fermiamolo 
-   					forward rover -m moveRover : cmd(move("stop",40,0));
-   					println("Distance from sonar1 reached.")
-   				}
-   			} else {
-   				//println("Not on right distance");
-   				[ not !? adjustingDistance ] { // Il rover parte non gestito dal sonar, prendiamone possesso
-					[ !? isfarther(sonar1) ] forward rover -m moveRover : cmd(move("forward",20,0));
-      				[ !? isnearer(sonar1) ] forward rover -m moveRover : cmd(move("backward",20,0));
-					addRule adjustingDistance;
-					println("Started distance adjustement...")
-   				}
+   			[ not !? started ] {
+	   			[ !? isatdistance(sonar1) ] { // Siamo alla distanza corretta? 
+	   				//println("On right distance");
+	   				[ ?? adjustingDistance ] { // Se il rover si sta muovendo gestito dal sonar, fermiamolo 
+	   					forward rover -m moveRover : cmd(move("stop",40,0));
+	   					println("Distance from sonar1 reached.")
+	   				}
+	   			} else {
+	   				//println("Not on right distance");
+	   				[ not !? adjustingDistance ] { // Il rover parte non gestito dal sonar, prendiamone possesso
+						[ !? isfarther(sonar1) ] forward rover -m moveRover : cmd(move("forward",20,0));
+	      				[ !? isnearer(sonar1) ] forward rover -m moveRover : cmd(move("backward",20,0));
+						addRule adjustingDistance;
+						println("Started distance adjustement...")
+	   				}
+	   			}
    			}
    		} else {
    		
@@ -193,6 +195,7 @@ QActor sonarhandler context ctxRover4 {
    		
    	Plan handleControl resumeLastPlan
    		actions [
+   			onEvent robotControl : robotControl(start) -> addRule started;
    			onEvent robotControl : robotControl(finish) -> endQActor "[sonarhandler] Finish event detected! Shutdown."
    		]
 }
@@ -300,12 +303,12 @@ QActor rovermind context ctxRover4 {
 		]
 		transition
 			whenTime 60000 -> handleTout,
-			whenMsg moveRover -> execMove
+			whenEvent robotControl -> handleRobotControl
 		finally repeatPlan
 		
-	Plan execMove resumeLastPlan
+	Plan handleRobotControl resumeLastPlan
 		actions [
-			onMsg moveRover : cmd(start) -> {
+			onEvent robotControl : robotControl(start) -> {
 				addRule run;
 				forward rover -m moveRover : cmd(move("right",40,750))
 			}
@@ -501,17 +504,17 @@ QActor console context ctxRover4 {
 			whenTime 60000 -> handleTout,
 			whenEvent cmd -> handleCmd,
 			whenEvent inputcmd -> handleInputCmd,
-			whenEvent [!? started] usercmd -> handleUserCmd,
+			whenEvent [!? manual] usercmd -> handleUserCmd,
 			whenEvent robotControl -> handleControl
 		finally repeatPlan
 		
 	Plan handleCmd resumeLastPlan
 		actions [
 			onEvent cmd : cmd(start) -> {
-				addRule started;
-				forward rovermind -m moveRover : cmd(start)
+				emit robotControl : robotControl(start)
 			};
 			onEvent cmd : cmd("stop") -> {
+				addRule manual;
 				emit robotControl : robotControl(manual)
 			}
 		]
