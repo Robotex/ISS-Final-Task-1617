@@ -134,14 +134,14 @@ QActor sonarhandler context ctxRover4 {
 	   			[ !? isatdistance(sonar1) ] { // Siamo alla distanza corretta? 
 	   				//println("On right distance");
 	   				[ ?? adjustingDistance ] { // Se il rover si sta muovendo gestito dal sonar, fermiamolo 
-	   					forward rover -m moveRover : cmd(move("stop",40,0));
+	   					forward rover -m moveRover : cmd(move("stop",40,0,1));
 	   					println("Distance from sonar1 reached.")
 	   				}
 	   			} else {
 	   				//println("Not on right distance");
 	   				[ not !? adjustingDistance ] { // Il rover parte non gestito dal sonar, prendiamone possesso
-						[ !? isfarther(sonar1) ] forward rover -m moveRover : cmd(move("forward",20,0));
-	      				[ !? isnearer(sonar1) ] forward rover -m moveRover : cmd(move("backward",20,0));
+						[ !? isfarther(sonar1) ] forward rover -m moveRover : cmd(move("forward",20,0,1));
+	      				[ !? isnearer(sonar1) ] forward rover -m moveRover : cmd(move("backward",20,0,1));
 						addRule adjustingDistance;
 						println("Started distance adjustement...")
 	   				}
@@ -310,7 +310,7 @@ QActor rovermind context ctxRover4 {
 		actions [
 			onEvent robotControl : robotControl(start) -> {
 				addRule run;
-				forward rover -m moveRover : cmd(move("right",40,750))
+				forward rover -m moveRover : cmd(move("right",40,750,1))
 			}
 		]
 		switchTo [ !? run ] stage1
@@ -534,7 +534,7 @@ QActor console context ctxRover4 {
 			onEvent inputcmd : usercmd(executeInput(connectToUnity(X))) -> emit unityAddr : unityAddr(X) ;
 			onEvent inputcmd : usercmd(executeInput(setStartDistance(X))) -> emit startDistance : startDistance(X);
 			onEvent inputcmd : usercmd(executeInput(move(X,Y,Z))) -> forward rover -m moveRover : cmd(move(X,Y,Z));
-			onEvent inputcmd : usercmd(executeInput(startReverse(X))) -> javaRun it.unibo.custom.path.startReverse();
+			onEvent inputcmd : usercmd(executeInput(startReverse)) -> javaRun it.unibo.custom.path.startReverse() -asynch;
 			onEvent inputcmd : usercmd(executeInput(X)) -> println(X)
 		]
 		
