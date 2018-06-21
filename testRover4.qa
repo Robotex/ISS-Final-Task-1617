@@ -463,9 +463,16 @@ QActor rovermind context ctxRover4 {
 		actions []
 		transition
 			whenTime 60000 -> handleTout,
-			whenEvent sonarDetect -> stage1_obstacleAvoidingManagement, //SE QUESTO SCATTA: fixed or dynamic
+			whenEvent sonarDetect -> stage2_manageObstacle, //SE QUESTO SCATTA: fixed or dynamic
 			whenEvent robotControl -> handleControl
 		finally repeatPlan
+		
+	Plan stage2_manageObstacle resumeLastPlan
+		actions [
+			forward rover -m moveRover : cmd(move("stop",40,0,1));
+			forward rover -m moveRover : cmd(move("backward",20,1000,1));
+			forward rover -m moveRover : cmd(move("stop",40,0,1))
+		]
 	
 	Plan handleAlarm
 		actions [
