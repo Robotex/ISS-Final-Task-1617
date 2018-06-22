@@ -5,13 +5,16 @@ import it.unibo.qactors.QActorContext;
 import it.unibo.qactors.QActorUtils;
 import it.unibo.qactors.akka.QActor;
 import java.util.Stack;
+import java.util.stream.Collectors;
 
 import alice.tuprolog.Int;
 import alice.tuprolog.Prolog;
 import alice.tuprolog.Term;
+import cli.System.DateTime;
 import cli.System.TimeSpan;
 
 import java.util.Queue;
+import java.sql.Timestamp;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Iterator;
@@ -20,6 +23,7 @@ import java.util.LinkedList;
 public class path {
 	
 	static Deque<Action> stack = new ArrayDeque<Action>();
+	
 	
 	public static class Action {
 		public String move;
@@ -53,10 +57,21 @@ public class path {
 		}
 		public Action reverse() {
 			Action reversed = new Action(this);
+			Action nextMove =stack.peek();
+			
+			/*
+			
 			if (reversed.move.equals("left"))
 				reversed.move = "right";
 			else if (reversed.move.equals("right"))
-				reversed.move = "left";
+				reversed.move = "left";*/
+			
+			if (nextMove != null && nextMove.move!="backward")
+			{
+				if (reversed.move.equals("left")) reversed.move="right";
+				else if (reversed.move.equals("right")) reversed.move="left";
+			}
+			if (reversed.move.equals("backward")) reversed.move="forward";
 			return reversed;
 		}
 		
@@ -83,8 +98,13 @@ public class path {
 		Action action = new Action(move, time);
 		
 		if (!stack.isEmpty()) {
+			
 			Action lastAction = stack.peek();
 			lastAction.actualDuration = System.currentTimeMillis() - lastAction.timeStamp; 
+		}
+		else
+		{
+			stack.push(new Action("stop","20","750"));
 		}
 		
 		myself.println("[console] register: " + action.getCmd() + " reversed: " + action.reverse().getCmd());
@@ -102,9 +122,10 @@ public class path {
 	
 	public static void startReverse(QActor myself){
 
-			try {	
-				myself.println("[console] startReverse rotating rover");
+			try {
+				stack= new ArrayDeque<Action>(stack.stream().filter(f->!f.move.equals("stop")).collect(Collectors.toList()));
 				
+				myself.println("[console] startReverse rotating rover");
 				myself.sendMsg("moveRover", "rover", QActorContext.dispatch, "cmd(move(right,20,750))");
 				Thread.sleep(1500);
 				myself.sendMsg("moveRover", "rover", QActorContext.dispatch, "cmd(move(right,20,750))");
@@ -112,12 +133,17 @@ public class path {
 				
 				myself.println("[console] startReverse executing path");
 			
-				for (Action curraction : stack) {
-					Action reversedaction = curraction.reverse();
+				//for (Action curraction : stack)
+				//Action curraction;
+				while(!stack.isEmpty())
+				{
+					
+					Action reversedaction = stack.pop().reverse();
 
 						myself.sendMsg("moveRover", "rover", QActorContext.dispatch, reversedaction.formatAsMessage(myself.getPrologEngine()));
 						Thread.sleep(reversedaction.actualDuration);
-				}		
+				}
+				myself.sendMsg("moveRover","rover",QActorContext.dispatch," cmd(move(stop,20,750))");
 			
 			} catch (Exception e) {	
 				myself.println("[console] startReverse Exception! " + e.getLocalizedMessage());
