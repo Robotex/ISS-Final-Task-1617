@@ -18,7 +18,7 @@ Context ctxRover4 ip [ host="localhost" port=8090 ] -httpserver
 
 EventHandler evh for  sonar { 
 	memoCurrentEvent -lastonly for sonarhandler
-} ;
+};
 
 QActor sonarhandler context ctxRover4 {
 	Rules{   
@@ -463,6 +463,7 @@ QActor rovermind context ctxRover4 {
 		actions []
 		transition
 			whenTime 60000 -> handleTout,
+			whenEvent alarm -> handleAlarm,
 			whenEvent sonarDetect -> stage2_manageObstacle, //SE QUESTO SCATTA: fixed or dynamic
 			whenEvent robotControl -> handleControl
 		finally repeatPlan
@@ -470,7 +471,14 @@ QActor rovermind context ctxRover4 {
 	Plan stage2_manageObstacle resumeLastPlan
 		actions [
 			forward rover -m moveRover : cmd(move("stop",40,0,1));
-			forward rover -m moveRover : cmd(move("backward",20,1000,1));
+			forward rover -m moveRover : cmd(move("backward",20,2000,1))
+		]
+		transition
+			whenTime 2000 -> stage2_manageObstacleDone,
+			whenEvent alarm -> handleAlarm
+	
+	Plan stage2_manageObstacleDone resumeLastPlan
+		actions [
 			forward rover -m moveRover : cmd(move("stop",40,0,1))
 		]
 	
